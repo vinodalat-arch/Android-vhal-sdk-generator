@@ -37,6 +37,12 @@ st.markdown("""
 # ── Folder picker helper ──
 
 
+def _on_select_folder(key, browse_key):
+    """on_click callback — runs before widgets re-render, avoiding the
+    'cannot modify after widget instantiated' error."""
+    st.session_state[key] = st.session_state[browse_key]
+
+
 def _folder_picker(label, key, placeholder="", help_text=None, container=st):
     """Text input paired with an inline folder browser popover."""
     if key not in st.session_state:
@@ -79,12 +85,11 @@ def _folder_picker(label, key, placeholder="", help_text=None, container=st):
             st.caption(f"… and {len(subdirs) - 25} more")
 
         st.divider()
-        if st.button(
+        st.button(
             "Select this folder", key=f"{key}__sel",
             type="primary", use_container_width=True,
-        ):
-            st.session_state[key] = str(cur)
-            st.rerun()
+            on_click=_on_select_folder, args=(key, browse_key),
+        )
 
     return value
 
