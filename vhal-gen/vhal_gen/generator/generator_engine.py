@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 from pathlib import Path
 from typing import Optional
@@ -19,7 +20,7 @@ TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 
 # SDK files to copy verbatim from the Vehicle Body SDK source tree.
 # Keys are source-relative paths, values are destination-relative paths
-# under output/vhal/sdk/.
+# under bridge/sdk/.
 SDK_FILE_MAP: dict[str, str] = {
     "com/include/ComConfig.h": "sdk/com/include/ComConfig.h",
     "com/include/CanConfig.h": "sdk/com/include/CanConfig.h",
@@ -55,14 +56,21 @@ class GeneratorEngine:
             lstrip_blocks=True,
         )
 
-    def generate(self, output_dir: Path) -> list[Path]:
-        """Generate all output files to the specified directory.
+    def generate(self, vhal_root: Path) -> list[Path]:
+        """Generate into the pulled VHAL tree.
 
-        Returns list of generated file paths.
+        Writes generated files to impl/bridge/, modifies VehicleService.cpp
+        and vhal/Android.bp in-place.
+
+        Args:
+            vhal_root: Path to automotive/vehicle/aidl (the sparse checkout root)
+
+        Returns:
+            List of generated/modified file paths.
         """
-        vhal_dir = output_dir / "vhal"
-        test_dir = output_dir / "vhal" / "test-apk"
-        vhal_dir.mkdir(parents=True, exist_ok=True)
+        bridge_dir = vhal_root / "impl" / "bridge"
+        test_dir = bridge_dir / "test-apk"
+        bridge_dir.mkdir(parents=True, exist_ok=True)
         test_dir.mkdir(parents=True, exist_ok=True)
 
         generated = []
@@ -90,17 +98,16 @@ class GeneratorEngine:
 
         # Files to generate: (template_name, output_path)
         file_map = [
-            ("DefaultProperties.json.j2", vhal_dir / "DefaultProperties.json"),
-            ("VendorProperties.h.j2", vhal_dir / "VendorProperties.h"),
-            ("IpcProtocol.h.j2", vhal_dir / "IpcProtocol.h"),
-            ("BridgeVehicleHardware.h.j2", vhal_dir / "BridgeVehicleHardware.h"),
-            ("BridgeVehicleHardware.cpp.j2", vhal_dir / "BridgeVehicleHardware.cpp"),
-            ("VehicleService.cpp.patch.j2", vhal_dir / "VehicleService.cpp.patch"),
-            ("FlyncDaemon.h.j2", vhal_dir / "FlyncDaemon.h"),
-            ("FlyncDaemon.cpp.j2", vhal_dir / "FlyncDaemon.cpp"),
-            ("Android.bp.j2", vhal_dir / "Android.bp"),
-            ("flync-daemon.rc.j2", vhal_dir / "flync-daemon.rc"),
-            ("INTEGRATION.md.j2", vhal_dir / "INTEGRATION.md"),
+            ("DefaultProperties.json.j2", bridge_dir / "DefaultProperties.json"),
+            ("VendorProperties.h.j2", bridge_dir / "VendorProperties.h"),
+            ("IpcProtocol.h.j2", bridge_dir / "IpcProtocol.h"),
+            ("BridgeVehicleHardware.h.j2", bridge_dir / "BridgeVehicleHardware.h"),
+            ("BridgeVehicleHardware.cpp.j2", bridge_dir / "BridgeVehicleHardware.cpp"),
+            ("FlyncDaemon.h.j2", bridge_dir / "FlyncDaemon.h"),
+            ("FlyncDaemon.cpp.j2", bridge_dir / "FlyncDaemon.cpp"),
+            ("Android.bp.j2", bridge_dir / "Android.bp"),
+            ("flync-daemon.rc.j2", bridge_dir / "flync-daemon.rc"),
+            ("INTEGRATION.md.j2", bridge_dir / "INTEGRATION.md"),
             ("VhalTestActivity.java.j2", test_dir / "VhalTestActivity.java"),
             ("AndroidManifest.xml.j2", test_dir / "AndroidManifest.xml"),
         ]
@@ -118,20 +125,113 @@ class GeneratorEngine:
 
         # Copy SDK files if source directory is provided
         if self.sdk_source_dir is not None:
-            sdk_files = self._copy_sdk_files(vhal_dir)
+            sdk_files = self._copy_sdk_files(bridge_dir)
             generated.extend(sdk_files)
+
+        # Auto-modify stock VHAL files
+        self._patch_vehicle_service_cpp(vhal_root)
+        self._modify_vhal_android_bp(vhal_root)
 
         return generated
 
-    def _copy_sdk_files(self, vhal_dir: Path) -> list[Path]:
-        """Copy Vehicle Body SDK files verbatim into the output directory.
+    def _patch_vehicle_service_cpp(self, vhal_root: Path) -> None:
+        """Directly modify VehicleService.cpp to use BridgeVehicleHardware.
+
+        Performs in-place string replacements — no patch file needed.
+        """
+        vs_path = vhal_root / "impl" / "vhal" / "src" / "VehicleService.cpp"
+        if not vs_path.exists():
+            logger.warning("VehicleService.cpp not found at %s — skipping", vs_path)
+            return
+
+        content = vs_path.read_text()
+        original = content
+
+        # Replace include
+        content = content.replace(
+            "#include <FakeVehicleHardware.h>",
+            "#include <BridgeVehicleHardware.h>",
+        )
+
+        # Replace using declaration
+        content = content.replace(
+            "using ::android::hardware::automotive::vehicle::fake::FakeVehicleHardware;",
+            "using ::android::hardware::automotive::vehicle::bridge::BridgeVehicleHardware;",
+        )
+
+        # Replace instantiation (handles any whitespace before the variable)
+        content = content.replace(
+            "FakeVehicleHardware",
+            "BridgeVehicleHardware",
+        )
+
+        if content != original:
+            vs_path.write_text(content)
+            logger.info("Patched VehicleService.cpp: FakeVehicleHardware -> BridgeVehicleHardware")
+        else:
+            logger.warning("VehicleService.cpp already patched or no FakeVehicleHardware found")
+
+    def _modify_vhal_android_bp(self, vhal_root: Path) -> None:
+        """Modify impl/vhal/Android.bp to link BridgeVehicleHardware.
+
+        Uses targeted string replacements (not a patch) since the binary name
+        (@V1, @V3) varies by tag.
+        """
+        bp_path = vhal_root / "impl" / "vhal" / "Android.bp"
+        if not bp_path.exists():
+            logger.warning("vhal/Android.bp not found at %s — skipping", bp_path)
+            return
+
+        content = bp_path.read_text()
+        original = content
+
+        # 1. Remove FakeVehicleHardwareDefaults from defaults
+        content = re.sub(
+            r'[ \t]*"FakeVehicleHardwareDefaults",\n',
+            "",
+            content,
+        )
+
+        # 2. Replace FakeVehicleHardware with BridgeVehicleHardware in static_libs
+        content = content.replace(
+            '"FakeVehicleHardware"',
+            '"BridgeVehicleHardware"',
+        )
+
+        # 3. Add libjsoncpp to shared_libs if not already present
+        if '"libjsoncpp"' not in content:
+            # Find shared_libs block and add libjsoncpp
+            content = re.sub(
+                r'(shared_libs:\s*\[)',
+                r'\1\n        "libjsoncpp",',
+                content,
+            )
+
+        # 4. Add required for DefaultProperties.json if not already present
+        if '"flync-DefaultProperties.json"' not in content:
+            # Insert required after the shared_libs block closing bracket
+            content = re.sub(
+                r'(shared_libs:\s*\[[^\]]*\],)',
+                r'\1\n    required: ["flync-DefaultProperties.json"],',
+                content,
+                flags=re.DOTALL,
+            )
+
+        if content != original:
+            bp_path.write_text(content)
+            logger.info("Modified vhal/Android.bp: swapped Fake->Bridge deps")
+        else:
+            logger.warning("vhal/Android.bp already modified or unexpected format")
+
+    def _copy_sdk_files(self, bridge_dir: Path) -> list[Path]:
+        """Copy Vehicle Body SDK files verbatim into the bridge directory.
 
         Returns list of copied file paths.
         """
         copied = []
         for src_rel, dst_rel in SDK_FILE_MAP.items():
             src_path = self.sdk_source_dir / src_rel
-            dst_path = vhal_dir / dst_rel
+            dst_path = bridge_dir / dst_rel
             dst_path.parent.mkdir(parents=True, exist_ok=True)
 
             if not src_path.exists():

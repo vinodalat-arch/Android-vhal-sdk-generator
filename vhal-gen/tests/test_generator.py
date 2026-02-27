@@ -1,4 +1,4 @@
-"""Tests for the code generator."""
+"""Tests for the code generator — generates into a mock VHAL tree."""
 
 import json
 import shutil
@@ -12,36 +12,127 @@ from vhal_gen.parser.model_loader import load_flync_model
 MODEL_DIR = Path(__file__).parent.parent.parent / "flync-model-dev-2"
 SDK_DIR = Path(__file__).parent.parent.parent / "performance-stack-Body-lighting-Draft" / "src"
 
+# ── Stock AOSP content used to build the mock VHAL tree ──
 
-def _generate_to_tmpdir(sdk_source_dir=None):
+STOCK_VEHICLE_SERVICE_CPP = """\
+/*
+ * Copyright (C) 2021 The Android Open Source Project
+ */
+
+#define LOG_TAG "VehicleService"
+
+#include <DefaultVehicleHal.h>
+#include <FakeVehicleHardware.h>
+
+#include <android/binder_manager.h>
+#include <android/binder_process.h>
+#include <utils/Log.h>
+
+using ::android::hardware::automotive::vehicle::DefaultVehicleHal;
+using ::android::hardware::automotive::vehicle::fake::FakeVehicleHardware;
+
+int main(int /* argc */, char* /* argv */[]) {
+    ALOGI("Starting thread pool...");
+    if (!ABinderProcess_setThreadPoolMaxThreadCount(4)) {
+        ALOGE("Failed to set thread pool max thread count");
+        return 1;
+    }
+    ABinderProcess_startThreadPool();
+
+    std::unique_ptr<FakeVehicleHardware> hardware = std::make_unique<FakeVehicleHardware>();
+    std::shared_ptr<DefaultVehicleHal> vhal =
+            ::ndk::SharedRefBase::make<DefaultVehicleHal>(std::move(hardware));
+
+    ALOGI("VHAL service starting...");
+    binder_status_t status = AServiceManager_addService(
+            vhal->asBinder().get(),
+            "android.hardware.automotive.vehicle.IVehicle/default");
+    if (status != STATUS_OK) {
+        ALOGE("Failed to add VHAL service");
+        return 1;
+    }
+
+    ALOGI("VHAL service ready");
+    ABinderProcess_joinThreadPool();
+    return 0;
+}
+"""
+
+STOCK_VHAL_ANDROID_BP = """\
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_binary {
+    name: "android.hardware.automotive.vehicle@V1-default-service",
+    vendor: true,
+    defaults: [
+        "FakeVehicleHardwareDefaults",
+        "VehicleHalDefaults",
+        "android-automotive-large-parcelable-defaults",
+    ],
+    vintf_fragments: ["vhal-default-service.xml"],
+    init_rc: ["vhal-default-service.rc"],
+    relative_install_path: "hw",
+    srcs: ["src/VehicleService.cpp"],
+    static_libs: [
+        "DefaultVehicleHal",
+        "FakeVehicleHardware",
+        "VehicleHalUtils",
+    ],
+    shared_libs: [
+        "libbinder_ndk",
+    ],
+    header_libs: [
+        "IVehicleHardware",
+    ],
+}
+"""
+
+
+def _build_mock_vhal_tree(tmpdir: Path) -> Path:
+    """Create a minimal mock VHAL tree and return vhal_root path."""
+    vhal_root = tmpdir / "automotive" / "vehicle" / "aidl"
+
+    # Create stock VehicleService.cpp
+    vs_dir = vhal_root / "impl" / "vhal" / "src"
+    vs_dir.mkdir(parents=True)
+    (vs_dir / "VehicleService.cpp").write_text(STOCK_VEHICLE_SERVICE_CPP)
+
+    # Create stock vhal/Android.bp
+    bp_dir = vhal_root / "impl" / "vhal"
+    (bp_dir / "Android.bp").write_text(STOCK_VHAL_ANDROID_BP)
+
+    return vhal_root
+
+
+def _generate_into_mock_tree(sdk_source_dir=None):
+    """Helper: build mock tree, generate into it, return (vhal_root, generated)."""
     model = load_flync_model(MODEL_DIR)
     classifier = SignalClassifier()
     mappings = classifier.classify(model)
-    with tempfile.TemporaryDirectory() as tmpdir:
-        engine = GeneratorEngine(
-            mappings=mappings, model=model, sdk_source_dir=sdk_source_dir,
-        )
-        generated = engine.generate(Path(tmpdir))
-        return tmpdir, generated, Path(tmpdir)
+
+    tmpdir = Path(tempfile.mkdtemp())
+    vhal_root = _build_mock_vhal_tree(tmpdir)
+
+    engine = GeneratorEngine(
+        mappings=mappings, model=model, sdk_source_dir=sdk_source_dir,
+    )
+    generated = engine.generate(vhal_root=vhal_root)
+    return tmpdir, vhal_root, generated
 
 
 def test_all_files_generated():
-    """Verify all expected output files are generated (without SDK)."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model = load_flync_model(MODEL_DIR)
-        classifier = SignalClassifier()
-        mappings = classifier.classify(model)
-        engine = GeneratorEngine(mappings=mappings, model=model)
-        generated = engine.generate(Path(tmpdir))
-
-        assert len(generated) == 13
+    """Verify all expected output files are generated in impl/bridge/."""
+    tmpdir, vhal_root, generated = _generate_into_mock_tree()
+    try:
+        assert len(generated) == 12
         filenames = {f.name for f in generated}
         assert "DefaultProperties.json" in filenames
         assert "VendorProperties.h" in filenames
         assert "IpcProtocol.h" in filenames
         assert "BridgeVehicleHardware.h" in filenames
         assert "BridgeVehicleHardware.cpp" in filenames
-        assert "VehicleService.cpp.patch" in filenames
         assert "FlyncDaemon.h" in filenames
         assert "FlyncDaemon.cpp" in filenames
         assert "Android.bp" in filenames
@@ -49,64 +140,100 @@ def test_all_files_generated():
         assert "INTEGRATION.md" in filenames
         assert "VhalTestActivity.java" in filenames
         assert "AndroidManifest.xml" in filenames
+        # Patch file should NOT be generated
+        assert "VehicleService.cpp.patch" not in filenames
         # Transport files should NOT be present
         assert "UdpTransport.h" not in filenames
         assert "UdpTransport.cpp" not in filenames
-        assert "MockTransport.h" not in filenames
-        assert "MockTransport.cpp" not in filenames
+
+        # All files should be under impl/bridge/
+        bridge_dir = vhal_root / "impl" / "bridge"
+        for f in generated:
+            assert str(f).startswith(str(bridge_dir)), f"{f} not under {bridge_dir}"
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def test_all_files_generated_with_sdk():
     """Verify all output files including SDK copies are generated."""
     if not SDK_DIR.exists():
         return  # Skip if SDK not available
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model = load_flync_model(MODEL_DIR)
-        classifier = SignalClassifier()
-        mappings = classifier.classify(model)
-        engine = GeneratorEngine(
-            mappings=mappings, model=model, sdk_source_dir=SDK_DIR,
-        )
-        generated = engine.generate(Path(tmpdir))
-
-        # 13 generated + up to 12 SDK files (some may not exist)
-        assert len(generated) >= 13
+    tmpdir, vhal_root, generated = _generate_into_mock_tree(sdk_source_dir=SDK_DIR)
+    try:
+        # 12 generated + up to 12 SDK files (some may not exist)
+        assert len(generated) >= 12
         filenames = {f.name for f in generated}
         assert "Read_App_Signal_Data.h" in filenames
         assert "Write_App_Signal_Data.h" in filenames
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def test_sdk_files_copied_verbatim():
     """Verify SDK files are exact copies of the originals."""
     if not SDK_DIR.exists():
         return  # Skip if SDK not available
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model = load_flync_model(MODEL_DIR)
-        classifier = SignalClassifier()
-        mappings = classifier.classify(model)
-        engine = GeneratorEngine(
-            mappings=mappings, model=model, sdk_source_dir=SDK_DIR,
-        )
-        engine.generate(Path(tmpdir))
-
-        # Check Read_App_Signal_Data.h is an exact copy
+    tmpdir, vhal_root, _ = _generate_into_mock_tree(sdk_source_dir=SDK_DIR)
+    try:
         src = SDK_DIR / "app" / "swc" / "Read_App_Signal_Data.h"
-        dst = Path(tmpdir) / "vhal" / "sdk" / "app" / "swc" / "Read_App_Signal_Data.h"
+        dst = vhal_root / "impl" / "bridge" / "sdk" / "app" / "swc" / "Read_App_Signal_Data.h"
         if src.exists():
             assert dst.exists()
             assert src.read_bytes() == dst.read_bytes(), "SDK file was not copied verbatim"
+    finally:
+        shutil.rmtree(tmpdir)
+
+
+def test_vehicle_service_cpp_patched():
+    """Verify VehicleService.cpp is modified in-place to use BridgeVehicleHardware."""
+    tmpdir, vhal_root, _ = _generate_into_mock_tree()
+    try:
+        vs_path = vhal_root / "impl" / "vhal" / "src" / "VehicleService.cpp"
+        content = vs_path.read_text()
+
+        # BridgeVehicleHardware should be present
+        assert "BridgeVehicleHardware" in content
+        assert "#include <BridgeVehicleHardware.h>" in content
+        assert "bridge::BridgeVehicleHardware" in content
+        assert "std::make_unique<BridgeVehicleHardware>()" in content
+
+        # FakeVehicleHardware should be completely gone
+        assert "FakeVehicleHardware" not in content
+    finally:
+        shutil.rmtree(tmpdir)
+
+
+def test_vhal_android_bp_modified():
+    """Verify vhal/Android.bp is modified to use BridgeVehicleHardware deps."""
+    tmpdir, vhal_root, _ = _generate_into_mock_tree()
+    try:
+        bp_path = vhal_root / "impl" / "vhal" / "Android.bp"
+        content = bp_path.read_text()
+
+        # BridgeVehicleHardware should replace FakeVehicleHardware in static_libs
+        assert '"BridgeVehicleHardware"' in content
+        assert '"FakeVehicleHardware"' not in content
+
+        # FakeVehicleHardwareDefaults should be removed from defaults
+        assert "FakeVehicleHardwareDefaults" not in content
+
+        # libjsoncpp should be added to shared_libs
+        assert '"libjsoncpp"' in content
+
+        # required for DefaultProperties.json
+        assert '"flync-DefaultProperties.json"' in content
+
+        # Original binary name should be preserved
+        assert "android.hardware.automotive.vehicle@V1-default-service" in content
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def test_default_properties_valid_json():
     """Verify DefaultProperties.json is valid JSON."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model = load_flync_model(MODEL_DIR)
-        classifier = SignalClassifier()
-        mappings = classifier.classify(model)
-        engine = GeneratorEngine(mappings=mappings, model=model)
-        engine.generate(Path(tmpdir))
-
-        json_path = Path(tmpdir) / "vhal" / "DefaultProperties.json"
+    tmpdir, vhal_root, _ = _generate_into_mock_tree()
+    try:
+        json_path = vhal_root / "impl" / "bridge" / "DefaultProperties.json"
         content = json_path.read_text()
         data = json.loads(content)
         assert isinstance(data, dict)
@@ -122,18 +249,15 @@ def test_default_properties_valid_json():
             assert "defaultValue" in entry
             assert "access" in entry
             assert "changeMode" in entry
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def test_vendor_properties_header():
     """Verify VendorProperties.h has no duplicate entries."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model = load_flync_model(MODEL_DIR)
-        classifier = SignalClassifier()
-        mappings = classifier.classify(model)
-        engine = GeneratorEngine(mappings=mappings, model=model)
-        engine.generate(Path(tmpdir))
-
-        header_path = Path(tmpdir) / "vhal" / "VendorProperties.h"
+    tmpdir, vhal_root, _ = _generate_into_mock_tree()
+    try:
+        header_path = vhal_root / "impl" / "bridge" / "VendorProperties.h"
         content = header_path.read_text()
 
         # Extract constexpr lines
@@ -144,18 +268,15 @@ def test_vendor_properties_header():
         ]
         # No duplicates
         assert len(constexpr_lines) == len(set(constexpr_lines)), "Duplicate vendor property entries found"
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def test_daemon_cpp_has_sdk_includes():
     """Verify FlyncDaemon.cpp includes SDK headers and uses SDK calls."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model = load_flync_model(MODEL_DIR)
-        classifier = SignalClassifier()
-        mappings = classifier.classify(model)
-        engine = GeneratorEngine(mappings=mappings, model=model)
-        engine.generate(Path(tmpdir))
-
-        daemon_path = Path(tmpdir) / "vhal" / "FlyncDaemon.cpp"
+    tmpdir, vhal_root, _ = _generate_into_mock_tree()
+    try:
+        daemon_path = vhal_root / "impl" / "bridge" / "FlyncDaemon.cpp"
         content = daemon_path.read_text()
         assert "Read_App_Signal_Data.h" in content
         assert "Write_App_Signal_Data.h" in content
@@ -166,37 +287,33 @@ def test_daemon_cpp_has_sdk_includes():
         # No custom bit manipulation
         assert "extractBits" not in content
         assert "packBits" not in content
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def test_daemon_h_has_signal_binding():
     """Verify FlyncDaemon.h uses SignalBinding instead of SignalDescriptor."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model = load_flync_model(MODEL_DIR)
-        classifier = SignalClassifier()
-        mappings = classifier.classify(model)
-        engine = GeneratorEngine(mappings=mappings, model=model)
-        engine.generate(Path(tmpdir))
-
-        header_path = Path(tmpdir) / "vhal" / "FlyncDaemon.h"
+    tmpdir, vhal_root, _ = _generate_into_mock_tree()
+    try:
+        header_path = vhal_root / "impl" / "bridge" / "FlyncDaemon.h"
         content = header_path.read_text()
         assert "SignalBinding" in content
         assert "SignalDescriptor" not in content
         assert "ITransport" not in content
         assert "extractBits" not in content
         assert "packBits" not in content
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def test_bridge_aosp_compatibility():
     """Verify BridgeVehicleHardware uses correct AOSP namespace and interface."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model = load_flync_model(MODEL_DIR)
-        classifier = SignalClassifier()
-        mappings = classifier.classify(model)
-        engine = GeneratorEngine(mappings=mappings, model=model)
-        engine.generate(Path(tmpdir))
+    tmpdir, vhal_root, _ = _generate_into_mock_tree()
+    try:
+        bridge_dir = vhal_root / "impl" / "bridge"
 
         # Check header uses correct namespace (not HIDL-era V2_0)
-        header = (Path(tmpdir) / "vhal" / "BridgeVehicleHardware.h").read_text()
+        header = (bridge_dir / "BridgeVehicleHardware.h").read_text()
         assert "namespace android::hardware::automotive::vehicle::bridge" in header
         assert "V2_0" not in header, "Should not use HIDL-era V2_0 namespace"
         assert "IVehicleHardware" in header
@@ -204,22 +321,15 @@ def test_bridge_aosp_compatibility():
         assert "const override" in header  # getValues must be const
 
         # Check cpp uses AIDL enum types (not raw int casts)
-        cpp = (Path(tmpdir) / "vhal" / "BridgeVehicleHardware.cpp").read_text()
+        cpp = (bridge_dir / "BridgeVehicleHardware.cpp").read_text()
         assert "namespace android::hardware::automotive::vehicle::bridge" in cpp
         assert "VehiclePropertyAccess::READ" in cpp
         assert "VehiclePropertyChangeMode::ON_CHANGE" in cpp
         assert "static_cast<int32_t>(0x" not in cpp, \
             "Should not use raw int casts for access/changeMode"
 
-        # Check VehicleService.cpp.patch is a valid unified diff
-        patch = (Path(tmpdir) / "vhal" / "VehicleService.cpp.patch").read_text()
-        assert "---" in patch, "Patch should contain unified diff --- marker"
-        assert "+++" in patch, "Patch should contain unified diff +++ marker"
-        assert "FakeVehicleHardware" in patch, "Patch should reference FakeVehicleHardware in removal lines"
-        assert "BridgeVehicleHardware" in patch, "Patch should reference BridgeVehicleHardware in addition lines"
-
         # Check Android.bp has SDK sources and NO transport references
-        bp = (Path(tmpdir) / "vhal" / "Android.bp").read_text()
+        bp = (bridge_dir / "Android.bp").read_text()
         assert "BridgeVehicleHardware" in bp
         assert "flync-daemon" in bp
         assert "prebuilt_etc" in bp
@@ -233,7 +343,8 @@ def test_bridge_aosp_compatibility():
         assert "MockTransport" not in bp
 
         # Check integration guide is generated
-        guide = (Path(tmpdir) / "vhal" / "INTEGRATION.md").read_text()
-        assert "FakeVehicleHardware" in guide
+        guide = (bridge_dir / "INTEGRATION.md").read_text()
         assert "BridgeVehicleHardware" in guide
         assert "Vehicle Body SDK" in guide
+    finally:
+        shutil.rmtree(tmpdir)

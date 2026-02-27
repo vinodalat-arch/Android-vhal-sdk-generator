@@ -31,116 +31,22 @@ Vehicle Network (UDP)
 └──────────────────────────────────────────┘
 ```
 
+## What Was Generated
+
+The generator placed bridge files in `impl/bridge/` and applied the following
+modifications to the stock VHAL source:
+
+- **VehicleService.cpp** — modified to use BridgeVehicleHardware instead of FakeVehicleHardware
+- **vhal/Android.bp** — updated to link BridgeVehicleHardware and libjsoncpp
+
+No manual copy or patch steps are needed — the VHAL tree is ready to build.
+
 ## Prerequisites
 
 - AOSP source tree synced with an Android 14 automotive target
 - The VHAL source at `hardware/interfaces/automotive/vehicle/aidl/`
 
-## Directory Layout After Integration
-
-```
-hardware/interfaces/automotive/vehicle/aidl/impl/
-├── vhal/
-│   ├── Android.bp                     (MODIFIED: add BridgeVehicleHardware dep)
-│   ├── src/
-│   │   └── VehicleService.cpp         (PATCHED: uses BridgeVehicleHardware)
-│   └── ...
-├── bridge/                            (NEW: generated files)
-│   ├── Android.bp
-│   ├── BridgeVehicleHardware.h
-│   ├── BridgeVehicleHardware.cpp
-│   ├── IpcProtocol.h
-│   ├── VendorProperties.h
-│   ├── DefaultProperties.json
-│   ├── FlyncDaemon.h
-│   ├── FlyncDaemon.cpp
-│   ├── flync-daemon.rc
-│   └── sdk/                           (Vehicle Body SDK - copied as-is)
-│       ├── com/
-│       │   ├── include/
-│       │   │   ├── ComConfig.h
-│       │   │   ├── CanConfig.h
-│       │   │   └── com_utils.h
-│       │   └── src/
-│       │       ├── ComConfig.cpp
-│       │       ├── CanConfig.cpp
-│       │       └── com_utils.cpp
-│       ├── can_io/
-│       │   ├── include/
-│       │   │   └── iodata.h
-│       │   └── src/
-│       │       └── iodata.cc
-│       └── app/
-│           └── swc/
-│               ├── Read_App_Signal_Data.h
-│               ├── Read_App_Signal_Data.cpp
-│               ├── Write_App_Signal_Data.h
-│               └── Write_App_Signal_Data.cpp
-├── hardware/                          (UNCHANGED)
-│   └── include/IVehicleHardware.h
-└── ...
-```
-
-## Step-by-Step Integration
-
-### 1. Copy Generated Files
-
-```bash
-# From the directory containing this file:
-VHAL_DIR=$AOSP_ROOT/hardware/interfaces/automotive/vehicle/aidl/impl
-
-# Create bridge directory
-mkdir -p $VHAL_DIR/bridge
-
-# Copy all generated files (including SDK subdirectory)
-cp -r . $VHAL_DIR/bridge/
-```
-
-### 2. Patch VehicleService.cpp
-
-```bash
-cd $VHAL_DIR
-git apply bridge/VehicleService.cpp.patch
-```
-
-This modifies VehicleService.cpp to use BridgeVehicleHardware instead of
-FakeVehicleHardware. Review the change with `git diff` after applying.
-
-### 3. Modify the VHAL Service Android.bp
-
-Edit `$VHAL_DIR/vhal/Android.bp`. Find the `cc_binary` target for the VHAL
-service (named `android.hardware.automotive.vehicle@V*-default-service`).
-
-**Add** `BridgeVehicleHardware` to `static_libs` and **remove**
-`FakeVehicleHardware`:
-
-```diff
- cc_binary {
--    name: "android.hardware.automotive.vehicle@V1-default-service",
-+    name: "android.hardware.automotive.vehicle@V1-default-service",  // keep existing name
-     vendor: true,
-     defaults: [
--        "FakeVehicleHardwareDefaults",
-         "VehicleHalDefaults",
-         "android-automotive-large-parcelable-defaults",
-     ],
-     ...
-     static_libs: [
-         "DefaultVehicleHal",
--        "FakeVehicleHardware",
-+        "BridgeVehicleHardware",
-         "VehicleHalUtils",
-+        "libjsoncpp",
-     ],
-     ...
-+    required: ["flync-DefaultProperties.json"],
- }
-```
-
-> **Note:** The binary name (`@V1` or `@V3`) varies by tag. Do NOT change it.
-> The existing `vintf_fragments` and `init_rc` references stay unchanged.
-
-### 4. Build
+## Build
 
 ```bash
 cd $AOSP_ROOT
@@ -152,7 +58,7 @@ cd hardware/interfaces/automotive/vehicle/aidl/impl
 mma
 ```
 
-### 5. Deploy to Emulator
+## Deploy to Emulator
 
 ```bash
 # Start emulator with writable system
@@ -176,7 +82,7 @@ adb shell stop vehicle_hal_server 2>/dev/null; adb shell stop vendor.vehicle.hal
 adb shell start vendor.vehicle.hal.default
 ```
 
-### 6. Verify
+## Verify
 
 ```bash
 # Check VHAL service is running with bridge

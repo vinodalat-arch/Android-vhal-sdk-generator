@@ -131,11 +131,9 @@ if project_base != _prev_base:
         st.session_state["sdk_source_dir"] = str(
             _base / "performance-stack-Body-lighting-Draft" / "src"
         )
-        st.session_state["output_dir"] = str(_base / "output")
     else:
         st.session_state["model_dir"] = ""
         st.session_state["sdk_source_dir"] = ""
-        st.session_state["output_dir"] = ""
 
 # ── YAML Model Input ──
 st.sidebar.subheader("YAML Model")
@@ -312,7 +310,7 @@ with tab_ivi:
         fetcher = GerritFetcher()
         # Allow custom Gerrit URL
         fetcher.GERRIT_URL = gerrit_url
-        target_dir = Path(st.session_state.get("output_dir", "./output"))
+        target_dir = Path(st.session_state.get("project_base", ".")) / "output"
         with st.status("Pulling VHAL source...", expanded=True) as status:
             vhal_path = None
             for line in fetcher.fetch_vhal(target_dir, tag=tag):
@@ -350,8 +348,6 @@ with tab_ivi:
             help_text="Path to Vehicle Body SDK source (com/, can_io/, app/swc/).",
         )
 
-    output_dir = _folder_picker("Output Directory", "output_dir")
-
     st.divider()
 
     # ─────────────────────────────────────────────
@@ -361,44 +357,50 @@ with tab_ivi:
 
     if not st.session_state.get("model_loaded"):
         st.warning("Load a model first to generate code.")
+    elif not st.session_state.get("vhal_pulled"):
+        st.warning("Pull VHAL source first (Section 2) before generating.")
     else:
         model = st.session_state["model"]
         mappings = st.session_state["mappings"]
-        out_dir = st.session_state.get("output_dir", "./output")
+        vhal_path = st.session_state["vhal_path"]
         sdk_dir = st.session_state.get("sdk_source_dir", "")
 
         st.markdown(
             f"**Mappings:** {len(mappings)} signals · "
             f"**SDK:** {sdk_dir or 'not set'} · "
-            f"**Output:** {out_dir}"
+            f"**VHAL tree:** {vhal_path}"
         )
 
         if st.button("Generate", type="primary"):
-            out_path = Path(out_dir)
+            vhal_root = Path(vhal_path)
             sdk_path = Path(sdk_dir) if sdk_dir and Path(sdk_dir).exists() else None
-            with st.spinner("Generating IVI package..."):
+            with st.spinner("Generating IVI package into VHAL tree..."):
                 engine = GeneratorEngine(
                     mappings=mappings,
                     model=model,
                     sdk_source_dir=sdk_path,
                 )
-                generated = engine.generate(out_path)
+                generated = engine.generate(vhal_root=vhal_root)
+                bridge_dir = vhal_root / "impl" / "bridge"
                 st.session_state["generated_files"] = generated
                 st.session_state["code_generated"] = True
-                st.session_state["output_path"] = out_path
+                st.session_state["bridge_dir"] = str(bridge_dir)
 
-            st.success(f"Generated {len(generated)} files!")
+            st.success(
+                f"Generated {len(generated)} files into {bridge_dir}\n\n"
+                "VehicleService.cpp and vhal/Android.bp auto-modified."
+            )
             st.rerun()
 
         if st.session_state.get("code_generated"):
             generated = st.session_state["generated_files"]
-            out_path = st.session_state["output_path"]
+            bridge_dir = Path(st.session_state["bridge_dir"])
 
-            # Download ZIP
+            # Download ZIP of bridge directory
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
                 for f in generated:
-                    zf.write(f, f.relative_to(out_path))
+                    zf.write(f, f.relative_to(bridge_dir.parent))
             zip_buf.seek(0)
             st.download_button(
                 "Download ZIP",
@@ -410,7 +412,7 @@ with tab_ivi:
             # File preview
             st.subheader("Generated Files")
             for f in generated:
-                rel = f.relative_to(out_path)
+                rel = f.relative_to(bridge_dir)
                 with st.expander(str(rel)):
                     content = f.read_text()
                     ext = f.suffix
@@ -480,15 +482,17 @@ with tab_ivi:
             else:
                 st.write("Connected devices:")
                 st.code(stdout)
-                out_dir = st.session_state.get("output_dir", "./output")
+                vhal_path = st.session_state.get("vhal_path", "<vhal_root>")
                 st.info(
-                    "To deploy the generated VHAL, run:\n\n"
+                    "To deploy, build the VHAL tree in an AOSP environment:\n\n"
                     "```bash\n"
-                    f"adb root\n"
-                    f"adb remount\n"
-                    f"adb push {out_dir}/vhal/ /vendor/etc/automotive/vhal/\n"
-                    f"adb shell stop vehicle_hal\n"
-                    f"adb shell start vehicle_hal\n"
+                    "source build/envsetup.sh\n"
+                    "lunch <your-automotive-target>\n"
+                    f"cd {vhal_path}/impl && mma\n"
+                    "adb root && adb remount\n"
+                    "adb push $OUT/vendor/bin/hw/android.hardware.automotive.vehicle@V*-default-service /vendor/bin/hw/\n"
+                    "adb shell stop vendor.vehicle.hal.default\n"
+                    "adb shell start vendor.vehicle.hal.default\n"
                     "```"
                 )
                 status.update(label="See deploy instructions", state="complete")

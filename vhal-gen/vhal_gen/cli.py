@@ -25,7 +25,13 @@ def main():
 
 @main.command()
 @click.argument("model_dir", type=click.Path(exists=True, file_okay=False))
-@click.option("-o", "--output", "output_dir", default="./output", help="Output directory")
+@click.option(
+    "--vhal-dir",
+    "vhal_dir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+    help="Path to pulled VHAL source (automotive/vehicle/aidl)",
+)
 @click.option(
     "--sdk-dir",
     "sdk_dir",
@@ -33,10 +39,10 @@ def main():
     type=click.Path(exists=True, file_okay=False),
     help="Vehicle Body SDK source directory (e.g. performance-stack-Body-lighting-Draft/src/)",
 )
-def generate(model_dir: str, output_dir: str, sdk_dir: str | None):
-    """Generate VHAL code from FLYNC YAML model directory."""
+def generate(model_dir: str, vhal_dir: str, sdk_dir: str | None):
+    """Generate VHAL code into a pulled VHAL source tree."""
     model_path = Path(model_dir)
-    out_path = Path(output_dir)
+    vhal_root = Path(vhal_dir)
     sdk_source_dir = Path(sdk_dir) if sdk_dir else None
 
     click.echo(f"Loading FLYNC model from: {model_path}")
@@ -50,7 +56,7 @@ def generate(model_dir: str, output_dir: str, sdk_dir: str | None):
     vendor = [m for m in mappings if m.is_vendor]
     click.echo(f"  {len(standard)} standard AOSP mappings, {len(vendor)} vendor mappings")
 
-    click.echo("Generating code...")
+    click.echo(f"Generating code into VHAL tree: {vhal_root}")
     if sdk_source_dir:
         click.echo(f"  SDK source: {sdk_source_dir}")
     engine = GeneratorEngine(
@@ -58,13 +64,14 @@ def generate(model_dir: str, output_dir: str, sdk_dir: str | None):
         model=model,
         sdk_source_dir=sdk_source_dir,
     )
-    generated = engine.generate(out_path)
-    click.echo(f"  Generated {len(generated)} files to {out_path}")
+    generated = engine.generate(vhal_root=vhal_root)
+    bridge_dir = vhal_root / "impl" / "bridge"
+    click.echo(f"  Generated {len(generated)} files to {bridge_dir}")
 
     for f in generated:
-        click.echo(f"    {f.relative_to(out_path)}")
+        click.echo(f"    {f.relative_to(vhal_root)}")
 
-    click.echo("Done.")
+    click.echo("Done — VehicleService.cpp and vhal/Android.bp auto-modified.")
 
 
 @main.command()
