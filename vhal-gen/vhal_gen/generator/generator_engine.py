@@ -95,7 +95,7 @@ class GeneratorEngine:
             ("IpcProtocol.h.j2", vhal_dir / "IpcProtocol.h"),
             ("BridgeVehicleHardware.h.j2", vhal_dir / "BridgeVehicleHardware.h"),
             ("BridgeVehicleHardware.cpp.j2", vhal_dir / "BridgeVehicleHardware.cpp"),
-            ("VehicleService.cpp.j2", vhal_dir / "VehicleService.cpp"),
+            ("VehicleService.cpp.patch.j2", vhal_dir / "VehicleService.cpp.patch"),
             ("FlyncDaemon.h.j2", vhal_dir / "FlyncDaemon.h"),
             ("FlyncDaemon.cpp.j2", vhal_dir / "FlyncDaemon.cpp"),
             ("Android.bp.j2", vhal_dir / "Android.bp"),

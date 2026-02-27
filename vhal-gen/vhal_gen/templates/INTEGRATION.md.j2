@@ -43,7 +43,7 @@ hardware/interfaces/automotive/vehicle/aidl/impl/
 ├── vhal/
 │   ├── Android.bp                     (MODIFIED: add BridgeVehicleHardware dep)
 │   ├── src/
-│   │   └── VehicleService.cpp         (REPLACED: uses BridgeVehicleHardware)
+│   │   └── VehicleService.cpp         (PATCHED: uses BridgeVehicleHardware)
 │   └── ...
 ├── bridge/                            (NEW: generated files)
 │   ├── Android.bp
@@ -96,16 +96,15 @@ mkdir -p $VHAL_DIR/bridge
 cp -r . $VHAL_DIR/bridge/
 ```
 
-### 2. Replace VehicleService.cpp
+### 2. Patch VehicleService.cpp
 
 ```bash
-# Back up the original
-cp $VHAL_DIR/vhal/src/VehicleService.cpp \
-   $VHAL_DIR/vhal/src/VehicleService.cpp.orig
-
-# Install our replacement
-cp VehicleService.cpp $VHAL_DIR/vhal/src/VehicleService.cpp
+cd $VHAL_DIR
+git apply bridge/VehicleService.cpp.patch
 ```
+
+This modifies VehicleService.cpp to use BridgeVehicleHardware instead of
+FakeVehicleHardware. Review the change with `git diff` after applying.
 
 ### 3. Modify the VHAL Service Android.bp
 

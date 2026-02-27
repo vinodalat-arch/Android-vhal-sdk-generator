@@ -1,0 +1,24 @@
+--- a/automotive/vehicle/aidl/impl/vhal/src/VehicleService.cpp
++++ b/automotive/vehicle/aidl/impl/vhal/src/VehicleService.cpp
+@@ -18,13 +18,13 @@
+
+ #include <DefaultVehicleHal.h>
+-#include <FakeVehicleHardware.h>
++#include <BridgeVehicleHardware.h>
+
+ #include <android/binder_manager.h>
+ #include <android/binder_process.h>
+ #include <utils/Log.h>
+
+-using ::android::hardware::automotive::vehicle::fake::FakeVehicleHardware;
++using ::android::hardware::automotive::vehicle::bridge::BridgeVehicleHardware;
+ using ::android::hardware::automotive::vehicle::DefaultVehicleHal;
+
+ int main(int /* argc */, char* /* argv */[]) {
+@@ -36,7 +36,7 @@
+     ABinderProcess_startThreadPool();
+
+-    std::unique_ptr<FakeVehicleHardware> hardware = std::make_unique<FakeVehicleHardware>();
++    std::unique_ptr<BridgeVehicleHardware> hardware = std::make_unique<BridgeVehicleHardware>();
+     std::shared_ptr<DefaultVehicleHal> vhal =
+             ::ndk::SharedRefBase::make<DefaultVehicleHal>(std::move(hardware));

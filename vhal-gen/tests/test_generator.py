@@ -41,7 +41,7 @@ def test_all_files_generated():
         assert "IpcProtocol.h" in filenames
         assert "BridgeVehicleHardware.h" in filenames
         assert "BridgeVehicleHardware.cpp" in filenames
-        assert "VehicleService.cpp" in filenames
+        assert "VehicleService.cpp.patch" in filenames
         assert "FlyncDaemon.h" in filenames
         assert "FlyncDaemon.cpp" in filenames
         assert "Android.bp" in filenames
@@ -211,13 +211,12 @@ def test_bridge_aosp_compatibility():
         assert "static_cast<int32_t>(0x" not in cpp, \
             "Should not use raw int casts for access/changeMode"
 
-        # Check VehicleService.cpp matches AOSP patterns
-        svc = (Path(tmpdir) / "vhal" / "VehicleService.cpp").read_text()
-        assert "BridgeVehicleHardware" in svc
-        assert "DefaultVehicleHal" in svc
-        assert "binder_exception_t" in svc, "Should use binder_exception_t, not binder_status_t"
-        assert "ALOGI" in svc, "Should use ALOGI to match AOSP style"
-        assert "IVehicle/default" in svc
+        # Check VehicleService.cpp.patch is a valid unified diff
+        patch = (Path(tmpdir) / "vhal" / "VehicleService.cpp.patch").read_text()
+        assert "---" in patch, "Patch should contain unified diff --- marker"
+        assert "+++" in patch, "Patch should contain unified diff +++ marker"
+        assert "FakeVehicleHardware" in patch, "Patch should reference FakeVehicleHardware in removal lines"
+        assert "BridgeVehicleHardware" in patch, "Patch should reference BridgeVehicleHardware in addition lines"
 
         # Check Android.bp has SDK sources and NO transport references
         bp = (Path(tmpdir) / "vhal" / "Android.bp").read_text()
