@@ -1,0 +1,237 @@
+channels: 
+#CAN MESSAGES
+  - name: FD_CAN_ZC_FL_0
+    protocol:
+      type: can_fd
+      bus_hw_id: 0
+      messages: 
+        - name: can_frame_0
+          id: 0x00000560
+          protocol: can
+          sender: zc_fl_controller
+          receivers: [zc_fr_controller]
+          pdu:
+            pdu: 0x1560
+  - name: FD_CAN_ZC_FL_1
+    protocol:
+      type: can_fd
+      bus_hw_id: 0
+      messages: 
+        - name: ExteriorLighting_Doors_Req
+          id: 0x00000401
+          protocol: can
+          sender: zc_fl_controller
+          receivers: [hpc]
+          pdu:
+            pdu: 0x1401
+  - name: FD_CAN_ZC_FL_2
+    protocol:
+      type: can_fd
+      bus_hw_id: 1
+      messages: 
+        - name: can_frame_2
+          id: 0x00000561
+          protocol: can
+          sender: zc_fl_controller
+          receivers: [zc_fr_controller]
+          pdu:
+            pdu: 0x1561
+  - name: FD_CAN_ZC_FL_3
+    protocol:
+      type: can_fd
+      bus_hw_id: 1
+      messages: 
+        - name: can_frame_3
+          id: 0x00000102
+          protocol: can
+          sender: zc_fl_controller
+          receivers: [hpc]
+          pdu:
+            pdu: 0x1102
+  - name: FD_CAN_ZC_FL_4
+    protocol:
+      type: can_fd
+      bus_hw_id: 2
+      messages: 
+        - name: can_frame_4
+          id: 0x00000562
+          protocol: can
+          sender: zc_fl_controller
+          receivers: [zc_fr_controller]
+          pdu:
+            pdu: 0x1562
+  - name: FD_CAN_ZC_FL_5
+    protocol:
+      type: can_fd
+      bus_hw_id: 3
+      messages: 
+        - name: can_frame_5
+          id: 0x00000563
+          protocol: can
+          sender: zc_fl_controller
+          receivers: [zc_fr_controller]
+          pdu:
+            pdu: 0x1563
+  - name: FD_CAN_ZC_FL_6
+    protocol:
+      type: can_fd
+      bus_hw_id: 4
+      messages: 
+        - name: can_frame_6
+          id: 0x00000564
+          protocol: can
+          sender: zc_fl_controller
+          receivers: [zc_fr_controller]
+          pdu:
+            pdu: 0x1564
+  - name: FD_CAN_ZC_FL_7
+    protocol:
+      type: can_fd
+      bus_hw_id: 5
+      messages: 
+        - name: can_frame_7
+          id: 0x00000565
+          protocol: can
+          sender: zc_fl_controller
+          receivers: [zc_fr_controller]
+          pdu:
+            pdu: 0x1565
+  - name: FD_CAN_ZC_FR_0
+    protocol:
+      type: can_fd
+      bus_hw_id: 0
+      messages: 
+        - name: can_frame_0
+          id: 0x00000210
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: zc_fl_controller
+          pdu:
+            pdu: 0x1560
+  - name: FD_CAN_ZC_FR_1
+    protocol:
+      type: can_fd
+      bus_hw_id: 1
+      messages: 
+        - name: can_frame_1
+          id: 0x00000211
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: zc_fl_controller
+          pdu:
+            pdu: 0x1561
+  - name: FD_CAN_ZC_FR_2
+    protocol:
+      type: can_fd
+      bus_hw_id: 2
+      messages: 
+        - name: can_frame_2
+          id: 0x00000212
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: zc_fl_controller
+          pdu:
+            pdu: 0x1562
+  - name: FD_CAN_ZC_FR_3
+    protocol:
+      type: can_fd
+      bus_hw_id: 3
+      messages: 
+        - name: can_frame_3
+          id: 0x00000213
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: zc_fl_controller
+          pdu:
+            pdu: 0x1563
+  - name: FD_CAN_ZC_FR_4
+    protocol:
+      type: can_fd
+      bus_hw_id: 4
+      messages: 
+        - name: can_frame_4
+          id: 0x00000214
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: zc_fl_controller
+          pdu:
+            pdu: 0x1564
+  - name: FD_CAN_ZC_FR_5
+    protocol:
+      type: can_fd
+      bus_hw_id: 5
+      messages: 
+        - name: can_frame_5
+          id: 0x00000215
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: zc_fl_controller
+          pdu:
+            pdu: 0x1565
+  - name: FD_CAN_ZC_FR_6
+    protocol:
+      type: can_fd
+      bus_hw_id: 1
+      messages: 
+        - name: ExteriorLighting_Doors_Req
+          id: 0x00000401
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: hpc
+          pdu:
+            pdu: 0x1101
+  - name: FD_CAN_ZC_FR_7
+    protocol:
+      type: can_fd
+      bus_hw_id: 1
+      messages: 
+        - name: can_frame_7
+          id: 0x00000103
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: hpc2
+          pdu:
+            pdu: 0x1103
+  - name: FD_CAN_ZC_FR_8
+    protocol:
+      type: can_fd
+      bus_hw_id: 1
+      messages: 
+        - name: zc_io_status_2
+          id: 0x111
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: hpc2
+          pdu:
+            pdu: 0x111
+  - name: FD_CAN_ZC_FR_9
+    protocol:
+      type: can_fd
+      bus_hw_id: 1
+      messages: 
+        - name: test_switch_global_state
+          id: 0x00000112
+          protocol: can
+          receivers: [zc_fr_controller]
+          sender: hpc2
+          pdu:
+            pdu: 0x00000112
+
+
+#CONTAINERS
+  # - name: Container_multicast_transmitter
+  #   deploymentType: npdu_ethernet
+  #   type: transmitter
+  #   container_id: 0
+  # - name: Container_unicast_transmitter
+  #   deploymentType: npdu_ethernet
+  #   type: transmitter
+  #   container_id: 1
+  # - name: Container_multicast_receiver
+  #   deploymentType: npdu_ethernet
+  #   type: receiver
+  #   container_id: 2
+  # - name: Container_unicast_receiver
+  #   deploymentType: npdu_ethernet
+  #   type: receiver
+  #   container_id: 3

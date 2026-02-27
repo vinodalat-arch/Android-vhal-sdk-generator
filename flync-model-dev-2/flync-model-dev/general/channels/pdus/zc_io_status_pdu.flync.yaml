@@ -1,0 +1,25 @@
+meta:
+  author: Dev
+  compatible_flync_version:
+    version_schema: semver
+    version: 1.0.0
+
+name: zc_io_status
+length: 1
+type: standard
+id: 0x140202FF
+signals:
+  - signal:
+      name: ext_wake_inputs
+      description: ext_wake_inputs
+      bit_length: 4
+      base_data_type: uint8
+      endianness: little
+      lower_limit: 0
+      upper_limit: 15
+
+      value_table:
+       - num_value: 1
+         description: "Ext_Wake_2"
+       - num_value: 2
+         description: "Ext_Wake_3"

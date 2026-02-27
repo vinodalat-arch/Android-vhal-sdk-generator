@@ -1,0 +1,16 @@
+vlan_name: vsm
+
+sockets:
+  - endpoint_address: 10.0.11.101
+    name: cm_10bt1s_vsm_socket
+    port_no: 50010
+    protocol: udp
+    udp_options:
+      udp_cork: False
+    deployments:
+      - deployment_type: vsm_consumer
+        name: "cm_10bt1s"
+        vsm_consumer_id: 7
+        efuse_id: 122
+        class_id: A
+      

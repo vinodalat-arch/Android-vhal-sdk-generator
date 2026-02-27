@@ -1,0 +1,42 @@
+api:
+  name: GlobalStateService
+  shortname: spm
+  version: 1.0.0
+
+types:
+  ActivateResult:
+    kind: enum
+    values:
+      - success
+      - invalid_state
+      - transition_denied
+
+operations:
+  list_states:
+    description:  
+    returns:
+      type: array
+      element_type: GlobalState
+
+  activate_state:
+    description: 
+    params:
+      state:
+        type: GlobalState
+    returns:
+      type: ActivateResult
+    signal_name: global_state_value
+
+  get_current_state:
+    description: 
+    returns:
+      type: GlobalState
+
+  get_state_participants:
+    description: 
+    params:
+      state:
+        type: GlobalState
+    returns:
+      type: array
+      element_type: Participant

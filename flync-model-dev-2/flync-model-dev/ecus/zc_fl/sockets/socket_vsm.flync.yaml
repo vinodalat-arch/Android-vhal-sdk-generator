@@ -1,0 +1,31 @@
+vlan_name: vsm
+
+sockets:
+  - endpoint_address: 10.0.11.21
+    name: zc_fl_vsm_socket
+    port_no: 50000
+    protocol: udp
+    udp_options:
+      udp_cork: False
+    deployments:
+      - deployment_type: vsm_master
+      
+  - endpoint_address: 10.0.11.21
+    name: zc_fl_vsm_socket
+    port_no: 50001
+    protocol: udp
+    udp_options:
+      udp_cork: False
+    deployments:
+      - deployment_type: vsm_master
+
+  - endpoint_address: 10.0.11.21
+    name: zc_fl_vsm_socket
+    port_no: 50010
+    protocol: udp
+    udp_options:
+      udp_cork: False
+    deployments:
+      - deployment_type: vsm_master
+        
+        

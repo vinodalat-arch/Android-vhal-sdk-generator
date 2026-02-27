@@ -1,0 +1,42 @@
+meta:
+  author: Dev
+  compatible_flync_version: 
+    version_schema: semver
+    version: 1.0.0
+  target_system: Every
+name: hpc_switch1  
+ports:
+- name: hpc_p0
+  silicon_port_no: 0
+  default_vlan_id: 1
+  mii_config:
+    type: sgmii
+    speed: 1000
+    mode: mac
+      
+- name: hpc_p1
+  silicon_port_no: 1
+  default_vlan_id: 1
+  mii_config:
+    type: sgmii
+    speed: 1000
+    mode: mac
+
+- name: hpc_p2
+  silicon_port_no: 2
+  default_vlan_id: 1
+  mii_config:
+    type: sgmii
+    speed: 1000
+    mode: mac
+
+vlans:
+- name: vsm
+  id: 11
+  default_priority: 0
+  ports:
+    - hpc_p0
+    - hpc_p1
+    - hpc_p2
+
+

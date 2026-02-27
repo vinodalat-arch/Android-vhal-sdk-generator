@@ -1,0 +1,16 @@
+vlan_name: vsm
+
+sockets:
+  - endpoint_address: 10.0.11.103
+    name: led_ilas_vsm_socket
+    port_no: 50010
+    protocol: udp
+    udp_options:
+      udp_cork: False
+    deployments:
+      - deployment_type: vsm_consumer
+        name: "led_ilas"
+        vsm_consumer_id: 6
+        efuse_id: 121
+        class_id: A
+      

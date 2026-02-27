@@ -1,0 +1,39 @@
+vlan_name: vsm
+
+sockets:
+  - endpoint_address: 10.0.11.31
+    name: zc_fr_vsm_socket
+    port_no: 50001
+    protocol: udp
+    udp_options:
+      udp_cork: False
+    deployments:
+      - deployment_type: vsm_consumer
+        name: "zc_fr"
+        vsm_consumer_id: 3
+        efuse_id: 0
+        control_bit_position: 1
+        class_id: B
+      - deployment_type: power_distributor
+        name: "zc_fr"
+        id: 100
+        max_efuses_connected: 4
+
+  - endpoint_address: 10.0.11.31
+    name: zc_fr_vsm_socket
+    port_no: 50010
+    protocol: udp
+    udp_options:
+      udp_cork: False
+    deployments:
+      - deployment_type: vsm_consumer
+        name: "zc_fr"
+        vsm_consumer_id: 3
+        efuse_id: 0
+        control_bit_position: 1
+        class_id: B
+      - deployment_type: power_distributor
+        name: "zc_fr"
+        id: 100
+        max_efuses_connected: 4
+      

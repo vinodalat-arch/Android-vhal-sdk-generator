@@ -1,0 +1,277 @@
+meta:
+  author: Dev
+  compatible_flync_version:
+    version_schema: semver
+    version: 1.0.0
+
+name: ExteriorLighting_Doors_Req
+length: 8
+type: standard
+id: 0x401
+signals:
+  - signal:
+      name: u8_TurnLight_req
+      description: The signal is used to request the turn ON/OFF indicator and Lane Change indication. 
+      bit_length: 3
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 5
+
+      value_table:
+       - num_value: 0
+         description: "IL_IDLE"
+       - num_value: 1
+         description: "LEFT"
+       - num_value: 2
+         description: "RIGHT"
+       - num_value: 3
+         description: "LEFT_LC"
+       - num_value: 4
+         description: "RIGHT_LC"
+       - num_value: 5
+         description: "TURN_FAULT"
+  - signal:
+      name: bo_Crash_Detection_sts
+      description: This signal is used to detect severe car crashes and alert emergency services.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "FALSE"
+       - num_value: 1
+         description: "TRUE"
+  - signal:
+      name: u8_PowerModeStatus
+      description: The Signal is used for the determination of Vehicle Power.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 2
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ACCESSORY_MODE"
+       - num_value: 2
+         description: "IGN_ON"
+  - signal:
+      name: bo_RKE_Authentication_Status
+      description: This Signal is used for determining Vehicle is Authenticated or not.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "FALSE"
+       - num_value: 1
+         description: "TRUE"
+  - signal:
+      name: bo_BattVg_AbvTH
+      description: The signal is used to verify that battery voltage is above the threshols value.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "Below Threshold"
+       - num_value: 1
+         description: "Above Threshold"
+  - signal:
+      name: u8_ALS_Data
+      description: If Head Light (HL) Switch is in AUTO mode, ALS should transmit DAY/NIGHT for HL ON.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 2
+
+      value_table:
+       - num_value: 0
+         description: "ALS_OFF"
+       - num_value: 1
+         description: "ALS_ON"
+       - num_value: 2
+         description: "ALS_FAULT"
+  - signal:
+      name: u8_Beam_Req
+      description: This Function is used to enable Low beam/High beam function.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 3
+
+      value_table:
+       - num_value: 0
+         description: "BREQ_LOW_INIT"
+       - num_value: 1
+         description: "BREQ_HIGH"
+       - num_value: 2
+         description: "BREQ_FLASHER"
+       - num_value: 3
+         description: "BREQ_FAULT"
+  - signal:
+      name: u8_MainLightSelector_Req
+      description: This signal is used to enable/disable the head lights and also used to enable manual/auto mode.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 3
+
+      value_table:
+       - num_value: 0
+         description: "HL_OFF"
+       - num_value: 1
+         description: "AUTO"
+       - num_value: 2
+         description: "HL_ON"
+       - num_value: 3
+         description: "HL_FAULT"
+  - signal:
+      name:  u8_HazardLight_req
+      description: Used to enable and disable hazard light using switch input
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 2
+
+      value_table:
+       - num_value: 0
+         description: "HAZARD_OFF"
+       - num_value: 1
+         description: "HAZARD_ON"
+       - num_value: 2
+         description: "HAZARD_FAULT"
+  - signal:
+      name: bo_ChldLck_DrSW
+      description: This signal gives the child lock activate/deactivate command via a driver switch.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 3
+
+      value_table:
+       - num_value: 0
+         description: "CL_OFF"
+       - num_value: 1
+         description: "CL_ON"
+       - num_value: 2
+         description: "CL_FAULT"
+       - num_value: 3
+         description: "CL_ERROR"
+  - signal:
+      name: bo_DoorLock_Sw
+      description: This signal gives the Door's lock/unlock command via Manual switch.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 3
+
+      value_table:
+       - num_value: 0
+         description: "ManualLOCK"
+       - num_value: 1
+         description: "ManualUNLOCK"
+       - num_value: 2
+         description: "ManualFAULT"
+       - num_value: 3
+         description: "ManualERROR"
+  - signal:
+      name: bo_DoorKey_req
+      description: This signal gives the Door's lock/unlock command via Door Key.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 3
+
+      value_table:
+       - num_value: 0
+         description: "KeyLOCK"
+       - num_value: 1
+         description: "KeyUNLOCK"
+       - num_value: 2
+         description: "KeyFAULT"
+       - num_value: 3
+         description: "KeyERROR"
+  - signal:
+      name: u8_RainLightSensor_Data
+      description: If RLS (Rain Light Sensor) transmits rain detected, then the Head Lamp should be ON if it is in AUTO mode.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 3
+
+      value_table:
+        - num_value: 0
+          description: "RLS_OFF"
+        - num_value: 1
+          description: "LEVEL_1"
+        - num_value: 2
+          description: "RLS_FAULT"
+  - signal:
+      name: u8_VehSpd_kmph
+      description: The signal is used to measure the vehicle speed in kmph
+      bit_length: 8
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 240
+
+  - signal:
+      name: u8_BlinkFreq_Req
+      description: This signal sets the blink frequency (3,5,7)
+      bit_length: 8
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 7
+

@@ -1,0 +1,39 @@
+global_states:
+  - name: deep_sleep
+    id: 1
+    participants:
+      - hpc
+      - zc_fr
+    is_default: false
+    label: "Vehicle Sleeps"
+  - name: parking
+    id: 2
+    participants:
+      - hpc
+      - zc_fr
+      - loris_10bt1s
+      - cm_10bt1s
+    is_default: false
+    label: "Vehicle Parking"
+  - name: veh_off_user_off
+    id: 3
+    participants:
+      - hpc
+      - zc_fr
+      - cm_ilas
+      - led_ilas
+    is_default: false
+    label: "Vehicle Standby"
+  - name: veh_on_user_on
+    id: 4
+    participants:
+      - hpc
+      - zc_fr
+      - loris_10bt1s
+      - cm_ilas
+      - led_ilas
+      - cm_10bt1s
+    is_default: true
+    label: "Vehicle Driving"
+
+

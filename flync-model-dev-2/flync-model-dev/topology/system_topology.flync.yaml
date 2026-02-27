@@ -1,0 +1,25 @@
+connections:
+  - type: ecu_port_to_ecu_port
+    id: conn1 #ok
+    ecu1_port: eth_hpc_zc_fl
+    ecu2_port: eth_zc_fl_hpc
+  - type: ecu_port_to_ecu_port
+    id: conn2 #ok
+    ecu1_port: eth_hpc_zc_fr
+    ecu2_port: eth_zc_fr_hpc
+  - type: ecu_port_to_ecu_port
+    id: conn3 # not correct but needed as placeholder
+    ecu1_port: eth_zc_fr_loris_10bt1s
+    ecu2_port: eth_loris_10bt1s_zc_fr
+  - type: ecu_port_to_ecu_port
+    id: conn4 # not correct but needed as placeholder
+    ecu1_port: eth_zc_fr_cm_ilas
+    ecu2_port: eth_cm_ilas_zc_fr
+  - type: ecu_port_to_ecu_port
+    id: conn5 # not correct but needed as placeholder
+    ecu1_port: eth_zc_fr_cm_10bt1s
+    ecu2_port: eth_cm_10bt1s_zc_fr
+  - type: ecu_port_to_ecu_port
+    id: conn6 # not correct but needed as placeholder
+    ecu1_port: eth_cm_10bt1s_zc_fr
+    ecu2_port: eth_led_ilas_zc_fr

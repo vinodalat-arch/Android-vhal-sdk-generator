@@ -1,0 +1,9 @@
+release: 
+  version_schema: semver
+  version: 1.0.0
+author: Dev
+compatible_flync_version: 
+  version_schema: semver
+  version: 1.0.0
+oem: Tier_1
+platform: Linux

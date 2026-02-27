@@ -1,0 +1,135 @@
+"""CLI entry point for vhal-gen."""
+
+from __future__ import annotations
+
+import json
+import logging
+import sys
+from pathlib import Path
+
+import click
+
+from .classifier.signal_classifier import SignalClassifier
+from .generator.generator_engine import GeneratorEngine
+from .parser.model_loader import load_flync_model
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
+
+
+@click.group()
+@click.version_option(version="1.0.0")
+def main():
+    """vhal-gen: FLYNC YAML to Android VHAL code generator."""
+
+
+@main.command()
+@click.argument("model_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("-o", "--output", "output_dir", default="./output", help="Output directory")
+@click.option(
+    "--transport",
+    type=click.Choice(["mock", "udp"]),
+    default="mock",
+    help="Transport mode for flync-daemon",
+)
+@click.option("--udp-addr", default="10.0.11.1", help="UDP target address")
+@click.option("--udp-port", default=5555, type=int, help="UDP port")
+def generate(model_dir: str, output_dir: str, transport: str, udp_addr: str, udp_port: int):
+    """Generate VHAL code from FLYNC YAML model directory."""
+    model_path = Path(model_dir)
+    out_path = Path(output_dir)
+
+    click.echo(f"Loading FLYNC model from: {model_path}")
+    model = load_flync_model(model_path)
+    click.echo(f"  Parsed {len(model.pdus)} PDUs, {sum(len(p.signals) for p in model.pdus.values())} signals")
+
+    click.echo("Classifying signals...")
+    classifier = SignalClassifier()
+    mappings = classifier.classify(model)
+    standard = [m for m in mappings if m.is_standard]
+    vendor = [m for m in mappings if m.is_vendor]
+    click.echo(f"  {len(standard)} standard AOSP mappings, {len(vendor)} vendor mappings")
+
+    click.echo(f"Generating code (transport={transport})...")
+    engine = GeneratorEngine(
+        mappings=mappings,
+        model=model,
+        transport=transport,
+        udp_addr=udp_addr,
+        udp_port=udp_port,
+    )
+    generated = engine.generate(out_path)
+    click.echo(f"  Generated {len(generated)} files to {out_path}")
+
+    for f in generated:
+        click.echo(f"    {f.relative_to(out_path)}")
+
+    click.echo("Done.")
+
+
+@main.command()
+@click.argument("model_dir", type=click.Path(exists=True, file_okay=False))
+def inspect(model_dir: str):
+    """Inspect a FLYNC YAML model directory and show parsed summary."""
+    model_path = Path(model_dir)
+
+    click.echo(f"Loading FLYNC model from: {model_path}")
+    model = load_flync_model(model_path)
+
+    click.echo(f"\nPDUs ({len(model.pdus)}):")
+    click.echo(f"{'Name':<40} {'ID':<12} {'Length':>6} {'Signals':>7} {'Dir':<4}")
+    click.echo("-" * 75)
+    for name, pdu in sorted(model.pdus.items()):
+        pdu_id_str = f"0x{pdu.pdu_id:X}"
+        click.echo(
+            f"{name:<40} {pdu_id_str:<12} {pdu.length:>4}B {len(pdu.signals):>7} {pdu.direction.value:<4}"
+        )
+
+    click.echo(f"\nSignals (total: {sum(len(p.signals) for p in model.pdus.values())}):")
+    for pdu_name, pdu in sorted(model.pdus.items()):
+        if not pdu.signals:
+            continue
+        click.echo(f"\n  [{pdu_name}] (0x{pdu.pdu_id:X}, {pdu.direction.value}):")
+        click.echo(f"  {'Signal':<35} {'Start':>5} {'Len':>4} {'Type':<6} {'Range'}")
+        click.echo(f"  {'-'*70}")
+        for sig in pdu.signals:
+            click.echo(
+                f"  {sig.name:<35} {sig.start_bit:>5} {sig.bit_length:>4} {sig.base_data_type:<6} "
+                f"[{sig.lower_limit}-{sig.upper_limit}]"
+            )
+
+    if model.global_states:
+        click.echo(f"\nGlobal States ({len(model.global_states)}):")
+        for gs in model.global_states:
+            default = " (default)" if gs.is_default else ""
+            click.echo(f"  {gs.state_id}: {gs.name}{default} — {', '.join(gs.participants)}")
+
+
+@main.command()
+@click.argument("model_dir", type=click.Path(exists=True, file_okay=False))
+def classify(model_dir: str):
+    """Classify signals to VehicleProperty mappings and show results."""
+    model_path = Path(model_dir)
+
+    click.echo(f"Loading FLYNC model from: {model_path}")
+    model = load_flync_model(model_path)
+
+    classifier = SignalClassifier()
+    mappings = classifier.classify(model)
+
+    click.echo(f"\nSignal → VehicleProperty Mappings ({len(mappings)}):")
+    click.echo(f"{'Signal':<35} {'Property ID':<14} {'Type':<8} {'Access':<5} {'Vendor':<6} {'Dir':<3}")
+    click.echo("-" * 85)
+    for m in mappings:
+        prop_label = m.standard_property_name if m.is_standard else m.vendor_constant_name
+        click.echo(
+            f"{m.signal_name:<35} {m.property_id_hex:<14} "
+            f"{'STD' if m.is_standard else 'VNDR':<8} "
+            f"{'R' if m.access.value == 1 else 'RW':<5} "
+            f"{'Yes' if m.is_vendor else 'No':<6} "
+            f"{'RX' if m.is_rx else 'TX':<3}"
+        )
+
+
+if __name__ == "__main__":
+    main()

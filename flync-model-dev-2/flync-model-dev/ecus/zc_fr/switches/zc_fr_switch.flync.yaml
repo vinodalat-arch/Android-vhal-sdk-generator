@@ -1,0 +1,59 @@
+meta:
+  author: Dev
+  compatible_flync_version: 
+    version_schema: semver
+    version: 1.0.0
+  target_system: Every
+name: zc_fr_switch1  
+ports:
+- name: zc_fr_p0
+  silicon_port_no: 0
+  default_vlan_id: 1
+  mii_config:
+    type: sgmii
+    speed: 1000
+    mode: phy
+      
+- name: zc_fr_p1
+  silicon_port_no: 1
+  default_vlan_id: 1
+  mii_config:
+    type: sgmii
+    speed: 1000
+    mode: mac
+
+- name: zc_fr_p2
+  silicon_port_no: 2
+  default_vlan_id: 1
+  mii_config:
+    type: sgmii
+    speed: 1000
+    mode: mac
+
+- name: zc_fr_p3
+  silicon_port_no: 3
+  default_vlan_id: 1
+  mii_config:
+    type: sgmii
+    speed: 1000
+    mode: mac
+
+- name: zc_fr_p4
+  silicon_port_no: 4
+  default_vlan_id: 1
+  mii_config:
+    type: sgmii
+    speed: 1000
+    mode: mac
+
+vlans:
+- name: vsm
+  id: 11
+  default_priority: 0
+  ports:
+    - zc_fr_p0
+    - zc_fr_p1
+    - zc_fr_p2
+    - zc_fr_p3
+
+

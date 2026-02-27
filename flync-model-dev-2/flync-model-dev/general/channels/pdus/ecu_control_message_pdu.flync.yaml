@@ -1,0 +1,41 @@
+meta:
+  author: Dev
+  compatible_flync_version:
+    version_schema: semver
+    version: 1.0.0
+
+name: ecu_control_message
+length: 10
+type: standard
+id: 0x14000002
+signals:
+  - signal:
+      name: crc16
+      description: crc16
+      bit_length: 16
+      base_data_type: uint16
+      endianness: big
+      lower_limit: 0
+      upper_limit: 65535
+      compu_methods: crc16
+  - signal:
+      name: counter
+      description: counter
+      bit_length: 8
+      base_data_type: uint8
+      endianness: little
+      lower_limit: 0
+      upper_limit: 15
+      compu_methods:
+  - signal:
+      name: ecu_group_bitfield
+      description: ecu_group_bitfield
+      bit_length: 32
+      base_data_type: uint8
+      endianness: little
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+      - num_value: 1
+        description: "ZC_Right"

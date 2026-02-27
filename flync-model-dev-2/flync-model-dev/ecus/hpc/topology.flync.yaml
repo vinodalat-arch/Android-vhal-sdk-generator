@@ -1,0 +1,16 @@
+connections:
+  - type: switch_port_to_controller_interface
+    id: conn1
+    controller_interface: hpc_controller_iface1
+    switch_port: hpc_p0
+    
+
+  - type: ecu_port_to_switch_port
+    id: conn2
+    switch_port: hpc_p1
+    ecu_port: eth_hpc_zc_fl
+
+  - type: ecu_port_to_switch_port
+    id: conn3
+    switch_port: hpc_p2
+    ecu_port: eth_hpc_zc_fr

@@ -1,0 +1,64 @@
+name: zc_fr_controller
+meta:
+  author: Dev
+  compatible_flync_version: 
+    version_schema: semver
+    version: 1.0.0
+  target_system: Every
+  
+interfaces:
+  - name: zc_fr_controller_iface1
+    mac_address: 3c:6d:66:0f:1e:81
+    mii_config:
+      type: sgmii
+      speed: 1000
+      mode: mac
+    virtual_interfaces:
+      - name: vsm
+        vlanid: 11
+        addresses: 
+          - address: 10.0.11.31
+            ipv4netmask: 255.255.255.0
+        multicast: []   
+
+gateway:
+  - type: eth_to_can              
+    source_container_id: 1
+    target_frame_id: 0x00000210
+    target_bus: FD_CAN_ZC_FR_0
+  - type: eth_to_can
+    source_container_id: 1
+    target_frame_id: 0x00000211
+    target_bus: FD_CAN_ZC_FR_1
+  - type: eth_to_can
+    source_container_id: 1
+    target_frame_id: 0x00000212
+    target_bus: FD_CAN_ZC_FR_2
+  - type: eth_to_can
+    source_container_id: 1
+    target_frame_id: 0x00000213
+    target_bus: FD_CAN_ZC_FR_3
+  - type: eth_to_can
+    source_container_id: 1
+    target_frame_id: 0x00000214
+    target_bus: FD_CAN_ZC_FR_4
+  - type: eth_to_can
+    source_container_id: 1
+    target_frame_id: 0x00000215
+    target_bus: FD_CAN_ZC_FR_5
+  - type: eth_to_can
+    source_container_id: 2
+    target_frame_id: 0x00000401
+    target_bus: FD_CAN_ZC_FR_6
+  - type: eth_to_can
+    source_container_id: 2
+    target_frame_id: 0x00000103
+    target_bus: FD_CAN_ZC_FR_7
+  - type: eth_to_can
+    source_container_id: 2
+    target_frame_id: 0x111
+    target_bus: FD_CAN_ZC_FR_8
+  - type: can_to_eth
+    target_container_id: 3
+    source_frame_id: 0x00000112
+    source_bus: FD_CAN_ZC_FR_9

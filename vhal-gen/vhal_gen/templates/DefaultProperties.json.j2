@@ -1,0 +1,49 @@
+{# Auto-generated VHAL DefaultProperties.json -- do not edit manually. #}
+{
+    "apiVersion": 1,
+    "properties": [
+{% for prop in mappings %}
+        {
+{% if prop.is_vendor %}
+            "property": "{{ prop.property_id_hex }}",
+            "propertyId": {{ prop.property_id }},
+{% else %}
+            "property": "VehicleProperty::{{ prop.standard_property_name }}",
+            "propertyId": {{ prop.property_id }},
+{% endif %}
+{% if prop.property_type.value == 0x00600000 %}
+            "defaultValue": {"floatValues": [0.0]},
+{% elif prop.property_type.value == 0x00200000 %}
+            "defaultValue": {"int32Values": [0]},
+{% else %}
+            "defaultValue": {"int32Values": [0]},
+{% endif %}
+{% if prop.property_type.value == 0x00600000 %}
+            "areas": [{"areaId": {{ prop.area_id }}, "minFloatValue": {{ prop.lower_limit }}, "maxFloatValue": {{ prop.upper_limit }}}],
+{% else %}
+            "areas": [{"areaId": {{ prop.area_id }}, "minInt32Value": {{ prop.lower_limit | int }}, "maxInt32Value": {{ prop.upper_limit | int }}}],
+{% endif %}
+{% if prop.change_mode.value == 0x02 %}
+            "maxSampleRate": 10.0,
+            "minSampleRate": 1.0,
+{% endif %}
+{% if prop.access.value == 0x01 %}
+            "access": "VehiclePropertyAccess::READ",
+{% elif prop.access.value == 0x02 %}
+            "access": "VehiclePropertyAccess::WRITE",
+{% elif prop.access.value == 0x03 %}
+            "access": "VehiclePropertyAccess::READ_WRITE",
+{% else %}
+            "access": "VehiclePropertyAccess::NONE",
+{% endif %}
+{% if prop.change_mode.value == 0x00 %}
+            "changeMode": "VehiclePropertyChangeMode::STATIC"
+{% elif prop.change_mode.value == 0x01 %}
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+{% elif prop.change_mode.value == 0x02 %}
+            "changeMode": "VehiclePropertyChangeMode::CONTINUOUS"
+{% endif %}
+        }{{ "," if not loop.last else "" }}
+{% endfor %}
+    ]
+}

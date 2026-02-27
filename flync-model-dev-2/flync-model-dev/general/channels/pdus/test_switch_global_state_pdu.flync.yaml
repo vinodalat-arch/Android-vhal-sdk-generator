@@ -1,0 +1,31 @@
+meta:
+  author: Dev
+  compatible_flync_version:
+    version_schema: semver
+    version: 1.0.0
+
+name: test_switch_global_state
+length: 1
+type: standard
+id: 0x112
+signals:
+  - signal:
+      name: global_state_value
+      description: global_state_value
+      bit_length: 8
+      base_data_type: uint8
+      endianness: little
+      lower_limit: 0
+      upper_limit: 255
+
+      value_table:
+       - num_value: 0
+         description: "Init"
+       - num_value: 1
+         description: "Deep_Sleep"
+       - num_value: 2
+         description: "Parking"
+       - num_value: 3
+         description: "Vehicle_Off_User_On"
+       - num_value: 4
+         description: "Vehicle_On_User_On"

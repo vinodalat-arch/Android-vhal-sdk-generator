@@ -1,0 +1,25 @@
+connections:
+  - type: switch_port_to_controller_interface
+    id: conn1
+    controller_interface: zc_fr_controller_iface1
+    switch_port: zc_fr_p0
+
+  - type: ecu_port_to_switch_port
+    id: conn2
+    switch_port: zc_fr_p1
+    ecu_port: eth_zc_fr_hpc
+
+  - type: ecu_port_to_switch_port
+    id: conn3
+    switch_port: zc_fr_p2
+    ecu_port: eth_zc_fr_loris_10bt1s
+
+  - type: ecu_port_to_switch_port
+    id: conn4
+    switch_port: zc_fr_p3
+    ecu_port: eth_zc_fr_cm_ilas
+
+  - type: ecu_port_to_switch_port
+    id: conn5
+    switch_port: zc_fr_p4
+    ecu_port: eth_zc_fr_cm_10bt1s

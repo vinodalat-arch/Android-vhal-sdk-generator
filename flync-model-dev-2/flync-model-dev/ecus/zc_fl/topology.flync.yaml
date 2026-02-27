@@ -1,0 +1,6 @@
+connections:
+  - type: ecu_port_to_controller_interface
+    id: conn1
+    controller_interface: zc_fl_controller_iface1
+    ecu_port: eth_zc_fl_hpc
+    

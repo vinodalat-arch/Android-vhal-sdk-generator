@@ -1,0 +1,343 @@
+meta:
+  author: Dev
+  compatible_flync_version:
+    version_schema: semver
+    version: 1.0.0
+
+name: ExteriorLighting_Doors_Cmd
+length: 8
+type: standard
+id: 0x101
+signals:
+  - signal:
+      name: bo_Indicator_Buzzer_Sts
+      description: Command to enable sound buzzer
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_HazardLight_cmd
+      description: Command to enable the light.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_FrontRight_Light_cmd
+      description: Command to enable the front right light.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_FrontLeft_Light_cmd
+      description: Command to enable the front left light. 
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_FR_Unlock_Sts
+      description: This signal gives the Door's unlock status.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "Lock"
+       - num_value: 1
+         description: "Unlock"
+  - signal:
+      name: bo_FL_Unlock_Sts
+      description: This signal gives the Door's unlock status.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "Lock"
+       - num_value: 1
+         description: "Unlock"
+  - signal:
+      name: bo_DRL_cmd
+      description: The Signal is used to determine DRL command.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_Crash_Detection_cmd
+      description: Command to enable when Crash is detected
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name:  bo_RR_Unlock_Sts
+      description: This signal gives the Door's unlock status.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "Lock"
+       - num_value: 1
+         description: "Unlock"
+  - signal:
+      name: bo_RL_Unlock_Sts
+      description: This signal gives the Door's unlock status.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "Lock"
+       - num_value: 1
+         description: "Unlock"
+  - signal:
+      name: bo_Right_Ind_Display_Sts
+      description: Command to enable right indicator telltale
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_RearRight_Light_cmd
+      description: Command to enable the rear right light.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+        - num_value: 0
+          description: "OFF"
+        - num_value: 1
+          description: "ON"
+  - signal:
+      name: bo_RearLeft_Light_cmd
+      description: Command to enable the rear left light.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_MirrorRight_Light_cmd
+      description: Command to enable the mirror right light.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_MirrorLeft_Light_cmd
+      description: Command to enable the mirror left light.
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: bo_Left_Ind_Display_Sts
+      description: Command to enable left indicator telltale
+      bit_length: 1
+      base_data_type: bool
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 1
+
+      value_table:
+       - num_value: 0
+         description: "OFF"
+       - num_value: 1
+         description: "ON"
+  - signal:
+      name: u8_MainLightSelector_Status
+      description: Used to give status about the head lamp is active/Inactive and also give information about Manual mode/Auto mode.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 3
+
+      value_table:
+       - num_value: 0
+         description: "HL_OFF"
+       - num_value: 1
+         description: "AUTO"
+       - num_value: 2
+         description: "HL_ON"
+       - num_value: 3
+         description: "HL_FAULT"
+  - signal:
+      name: u8_LowBeam
+      description: This command is used to turn ON/OFF the Low Beam.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 2
+
+      value_table:
+       - num_value: 0
+         description: "BEAM_OFF"
+       - num_value: 1
+         description: "BEAM_ON"
+       - num_value: 2
+         description: "BEAM_FAULT"
+  - signal:
+      name: u8_HighBeam
+      description: This command is used to turn ON/OFF the High Beam.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 2
+
+      value_table:
+       - num_value: 0
+         description: "BEAM_OFF"
+       - num_value: 1
+         description: "BEAM_ON"
+       - num_value: 2
+         description: "BEAM_FAULT"
+  - signal:
+      name: u8_Beam_Req_Status
+      description: Used to give information about the head lamp is in low Beam/high Beam.
+      bit_length: 2
+      base_data_type: uint8
+      endianness: little
+      scale: 1
+      offset: 0
+      lower_limit: 0
+      upper_limit: 3
+
+      value_table:
+       - num_value: 0
+         description: "BREQ_LOW_INIT"
+       - num_value: 1
+         description: "BREQ_HIGH"
+       - num_value: 2
+         description: "BREQ_FLASHER"
+       - num_value: 3
+         description: "BREQ_FAULT"

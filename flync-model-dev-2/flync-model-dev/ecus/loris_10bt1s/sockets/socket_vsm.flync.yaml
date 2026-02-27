@@ -1,0 +1,15 @@
+vlan_name: vsm
+
+sockets:
+  - endpoint_address: 10.0.11.104 #TODO confirm IP
+    name: loris_10bt1s_vsm_socket
+    port_no: 50010
+    protocol: udp
+    udp_options:
+      udp_cork: False
+    deployments:
+      - deployment_type: vsm_consumer
+        name: "loris_10bt1s"
+        vsm_consumer_id: 4
+        efuse_id: 109
+        class_id: A
