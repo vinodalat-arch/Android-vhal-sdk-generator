@@ -221,6 +221,14 @@ class SignalClassifier:
 
     # -- helpers ------------------------------------------------------------
 
+    # Recognized type prefixes in signal names that correspond to SDK
+    # getter/setter functions.  Signals without these prefixes (e.g.
+    # ``global_state_value``, ``ext_wake_inputs``) do NOT have matching
+    # SDK functions and must be excluded from the generated dispatchers.
+    _SDK_TYPE_PREFIXES: tuple[str, ...] = (
+        "bo_", "u8_", "u16_", "u32_", "s8_", "s16_", "s32_", "f32_", "f64_",
+    )
+
     @staticmethod
     def _derive_sdk_function_names(
         signal_name: str,
@@ -232,9 +240,13 @@ class SignalClassifier:
         - RX signals: ``get_{signal_name}``
         - TX signals: ``set_{signal_name}``
 
-        The type prefix (``u8_``, ``bo_``, etc.) is already part of the
-        signal name in the FLYNC model, so no additional derivation is needed.
+        Only signals whose names start with a recognized type prefix
+        (``bo_``, ``u8_``, etc.) have corresponding SDK functions.
+        Signals without a type prefix are internal/status signals that
+        the SDK does not expose through its signal API.
         """
+        if not signal_name.startswith(SignalClassifier._SDK_TYPE_PREFIXES):
+            return None, None
         if is_rx:
             return f"get_{signal_name}", None
         return None, f"set_{signal_name}"

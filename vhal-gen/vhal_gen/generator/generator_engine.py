@@ -67,8 +67,12 @@ class GeneratorEngine:
 
         generated = []
 
-        vendor_mappings = [m for m in self.mappings if m.is_vendor]
-        standard_mappings = [m for m in self.mappings if m.is_standard]
+        # Deduplicate mappings by (property_id, area_id) -- the same signal
+        # name can appear in multiple PDUs but produces only one property.
+        unique_mappings = self._deduplicate_mappings()
+
+        vendor_mappings = [m for m in unique_mappings if m.is_vendor]
+        standard_mappings = [m for m in unique_mappings if m.is_standard]
 
         # Build signal entries for daemon templates
         signal_entries = self._build_signal_entries()
@@ -76,7 +80,7 @@ class GeneratorEngine:
 
         # Context shared across templates
         ctx = {
-            "mappings": self.mappings,
+            "mappings": unique_mappings,
             "vendor_mappings": vendor_mappings,
             "standard_mappings": standard_mappings,
             "signal_entries": signal_entries,
@@ -140,10 +144,49 @@ class GeneratorEngine:
 
         return copied
 
+    def _deduplicate_mappings(self) -> list[PropertyMapping]:
+        """Return a deduplicated copy of mappings by (property_id, area_id).
+
+        When the same signal name appears in multiple PDUs (e.g.
+        ``global_state_value`` in 3 test PDUs), the VendorIdAllocator
+        assigns the same property ID.  We keep only the first occurrence.
+        """
+        seen: set[tuple[int, int]] = set()
+        unique: list[PropertyMapping] = []
+        for m in self.mappings:
+            key = (m.property_id, m.area_id)
+            if key in seen:
+                logger.debug(
+                    "Dedup mapping: %s (prop=0x%08X) from PDU %s",
+                    m.signal_name, m.property_id, m.pdu_name,
+                )
+                continue
+            seen.add(key)
+            unique.append(m)
+        if len(unique) < len(self.mappings):
+            logger.info(
+                "Deduplicated mappings: %d -> %d",
+                len(self.mappings), len(unique),
+            )
+        return unique
+
     def _build_signal_entries(self) -> list[dict]:
-        """Build signal entry dicts for daemon signal table."""
+        """Build signal entry dicts for daemon signal table.
+
+        Deduplicates by (property_id, area_id) so that the same signal
+        appearing in multiple PDUs only generates one signal table entry.
+        """
+        seen: set[tuple[int, int]] = set()
         entries = []
         for m in self.mappings:
+            key = (m.property_id, m.area_id)
+            if key in seen:
+                logger.debug(
+                    "Skipping duplicate signal entry: %s (prop=0x%08X, area=%d)",
+                    m.signal_name, m.property_id, m.area_id,
+                )
+                continue
+            seen.add(key)
             entries.append({
                 "property_id_hex": m.property_id_hex,
                 "property_id": m.property_id,

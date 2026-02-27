@@ -49,7 +49,9 @@ def test_full_pipeline():
         json_raw = json.loads((Path(tmpdir) / "vhal" / "DefaultProperties.json").read_text())
         assert json_raw["apiVersion"] == 1
         json_data = json_raw["properties"]
-        assert len(json_data) == len(mappings)
+        # Deduplicated count: 43 raw mappings minus 3 duplicates
+        # (global_state_value x2 extra, ext_wake_inputs x1 extra)
+        assert len(json_data) == 40
 
         # Verify VendorProperties.h has pragma once
         vendor_h = (Path(tmpdir) / "vhal" / "VendorProperties.h").read_text()
