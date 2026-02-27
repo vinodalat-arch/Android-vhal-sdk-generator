@@ -371,8 +371,9 @@ def test_bridge_aosp_compatibility():
         assert "static_cast<int32_t>(0x" not in cpp, \
             "Should not use raw int casts for access/changeMode"
 
-        # Check Android.bp has SDK sources and NO transport references
+        # Check Android.bp has package declaration, SDK sources, NO transport references
         bp = (bridge_dir / "Android.bp").read_text()
+        assert 'default_applicable_licenses' in bp, "Missing package {} block"
         assert "BridgeVehicleHardware" in bp
         assert "flync-daemon" in bp
         assert "prebuilt_etc" in bp

@@ -5,7 +5,6 @@ service flync-daemon /vendor/bin/flync-daemon
     class hal
     user vehicle_network
     group vehicle_network
-    socket flync-bridge stream 0660 vehicle_network vehicle_network
     disabled
     oneshot
 
