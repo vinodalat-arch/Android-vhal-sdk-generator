@@ -34,19 +34,95 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Folder picker helper ──
+
+
+def _folder_picker(label, key, placeholder="", help_text=None, container=st):
+    """Text input paired with an inline folder browser popover."""
+    if key not in st.session_state:
+        st.session_state[key] = ""
+
+    browse_key = f"_browse_{key}"
+
+    value = container.text_input(label, key=key, help=help_text, placeholder=placeholder)
+
+    # Sync browse starting path with the current text value
+    if value and Path(value).is_dir():
+        st.session_state[browse_key] = value
+    elif browse_key not in st.session_state:
+        st.session_state[browse_key] = str(Path.home())
+
+    with container.popover("Browse"):
+        cur = Path(st.session_state[browse_key])
+        st.caption(f"`{cur}`")
+
+        if cur != cur.parent:
+            if st.button(".. (parent)", key=f"{key}__up"):
+                st.session_state[browse_key] = str(cur.parent)
+                st.rerun()
+
+        try:
+            subdirs = sorted(
+                d.name for d in cur.iterdir()
+                if d.is_dir() and not d.name.startswith(".")
+            )
+        except (PermissionError, OSError):
+            subdirs = []
+            st.warning("Cannot read directory")
+
+        for name in subdirs[:25]:
+            if st.button(name, key=f"{key}__d_{name}", use_container_width=True):
+                st.session_state[browse_key] = str(cur / name)
+                st.rerun()
+
+        if len(subdirs) > 25:
+            st.caption(f"… and {len(subdirs) - 25} more")
+
+        st.divider()
+        if st.button(
+            "Select this folder", key=f"{key}__sel",
+            type="primary", use_container_width=True,
+        ):
+            st.session_state[key] = str(cur)
+            st.rerun()
+
+    return value
+
+
 # ═══════════════════════════════════════════════════════
 # SIDEBAR
 # ═══════════════════════════════════════════════════════
 
 st.sidebar.title("KPIT Vehicle SDK Generator")
 
+# ── Project Base Folder ──
+st.sidebar.subheader("Project Base Folder")
+project_base = _folder_picker(
+    "Base path", "project_base",
+    placeholder="/path/to/project", container=st.sidebar,
+)
+
+# Auto-populate derived paths when project base changes
+_prev_base = st.session_state.get("_prev_project_base", "")
+if project_base != _prev_base:
+    st.session_state["_prev_project_base"] = project_base
+    if project_base:
+        _base = Path(project_base)
+        st.session_state["model_dir"] = str(_base / "flync-model-dev-2")
+        st.session_state["sdk_source_dir"] = str(
+            _base / "performance-stack-Body-lighting-Draft" / "src"
+        )
+        st.session_state["output_dir"] = str(_base / "output")
+    else:
+        st.session_state["model_dir"] = ""
+        st.session_state["sdk_source_dir"] = ""
+        st.session_state["output_dir"] = ""
+
 # ── YAML Model Input ──
 st.sidebar.subheader("YAML Model")
-model_dir = st.sidebar.text_input(
-    "FLYNC Model Directory",
-    value=st.session_state.get("model_dir_input", ""),
-    placeholder="/path/to/flync-model-dev-2",
-    key="model_dir_input",
+model_dir = _folder_picker(
+    "FLYNC Model Directory", "model_dir",
+    placeholder="/path/to/flync-model-dev-2", container=st.sidebar,
 )
 
 if st.sidebar.button("Load Model", type="primary", use_container_width=True):
@@ -234,15 +310,12 @@ with tab_ivi:
         st.session_state["android_version"] = android_version
 
     with col_sdk:
-        sdk_source_dir = st.text_input(
-            "Vehicle Body SDK Directory",
-            value=st.session_state.get("sdk_source_dir", "performance-stack-Body-lighting-Draft/src/"),
-            help="Path to Vehicle Body SDK source (com/, can_io/, app/swc/).",
+        sdk_source_dir = _folder_picker(
+            "Vehicle Body SDK Directory", "sdk_source_dir",
+            help_text="Path to Vehicle Body SDK source (com/, can_io/, app/swc/).",
         )
-        st.session_state["sdk_source_dir"] = sdk_source_dir
 
-    output_dir = st.text_input("Output Directory", value="./output")
-    st.session_state["output_dir"] = output_dir
+    output_dir = _folder_picker("Output Directory", "output_dir")
 
     st.divider()
 
