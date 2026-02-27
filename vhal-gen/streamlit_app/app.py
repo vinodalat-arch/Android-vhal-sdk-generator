@@ -37,14 +37,58 @@ st.markdown("""
 # ── Folder picker helper ──
 
 
-def _on_select_folder(key, browse_key):
-    """on_click callback — runs before widgets re-render, avoiding the
-    'cannot modify after widget instantiated' error."""
-    st.session_state[key] = st.session_state[browse_key]
+def _on_select_folder(widget_key, browse_key):
+    """on_click callback — sets value before widgets render."""
+    st.session_state[widget_key] = st.session_state[browse_key]
+
+
+def _on_navigate(browse_key, new_path):
+    """on_click callback — updates browse path before dialog re-renders."""
+    st.session_state[browse_key] = new_path
+
+
+@st.dialog("Browse Folder")
+def _browse_folder_dialog(widget_key, browse_key):
+    """Modal folder browser that closes on selection."""
+    cur = Path(st.session_state[browse_key])
+    st.caption(f"`{cur}`")
+
+    if cur != cur.parent:
+        st.button(
+            ".. (parent)", key=f"{widget_key}__up",
+            on_click=_on_navigate, args=(browse_key, str(cur.parent)),
+        )
+
+    try:
+        subdirs = sorted(
+            d.name for d in cur.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        )
+    except (PermissionError, OSError):
+        subdirs = []
+        st.warning("Cannot read directory")
+
+    for name in subdirs[:25]:
+        st.button(
+            name, key=f"{widget_key}__d_{name}",
+            use_container_width=True,
+            on_click=_on_navigate, args=(browse_key, str(cur / name)),
+        )
+
+    if len(subdirs) > 25:
+        st.caption(f"… and {len(subdirs) - 25} more")
+
+    st.divider()
+    if st.button(
+        "Select this folder", key=f"{widget_key}__sel",
+        type="primary", use_container_width=True,
+        on_click=_on_select_folder, args=(widget_key, browse_key),
+    ):
+        st.rerun()  # closes the dialog
 
 
 def _folder_picker(label, key, placeholder="", help_text=None, container=st):
-    """Text input paired with an inline folder browser popover."""
+    """Text input paired with a folder browser dialog."""
     if key not in st.session_state:
         st.session_state[key] = ""
 
@@ -58,38 +102,8 @@ def _folder_picker(label, key, placeholder="", help_text=None, container=st):
     elif browse_key not in st.session_state:
         st.session_state[browse_key] = str(Path.home())
 
-    with container.popover("Browse"):
-        cur = Path(st.session_state[browse_key])
-        st.caption(f"`{cur}`")
-
-        if cur != cur.parent:
-            if st.button(".. (parent)", key=f"{key}__up"):
-                st.session_state[browse_key] = str(cur.parent)
-                st.rerun()
-
-        try:
-            subdirs = sorted(
-                d.name for d in cur.iterdir()
-                if d.is_dir() and not d.name.startswith(".")
-            )
-        except (PermissionError, OSError):
-            subdirs = []
-            st.warning("Cannot read directory")
-
-        for name in subdirs[:25]:
-            if st.button(name, key=f"{key}__d_{name}", use_container_width=True):
-                st.session_state[browse_key] = str(cur / name)
-                st.rerun()
-
-        if len(subdirs) > 25:
-            st.caption(f"… and {len(subdirs) - 25} more")
-
-        st.divider()
-        st.button(
-            "Select this folder", key=f"{key}__sel",
-            type="primary", use_container_width=True,
-            on_click=_on_select_folder, args=(key, browse_key),
-        )
+    if container.button("Browse", key=f"{key}__browse"):
+        _browse_folder_dialog(key, browse_key)
 
     return value
 
@@ -264,19 +278,35 @@ with tab_ivi:
     # ─────────────────────────────────────────────
     st.header("2. VHAL Source & Configuration")
 
-    col_gerrit, col_tag = st.columns([3, 1])
+    col_gerrit, col_tag, col_fetch = st.columns([3, 1, 1])
     with col_gerrit:
         gerrit_url = st.text_input(
             "Gerrit URL",
             value=GerritFetcher.GERRIT_URL,
             help="Android Gerrit repository for VHAL AIDL interfaces.",
         )
+    with col_fetch:
+        st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+        if st.button("Fetch Tags"):
+            fetcher = GerritFetcher()
+            fetcher.GERRIT_URL = gerrit_url
+            with st.spinner("Querying Gerrit..."):
+                tags = fetcher.list_android14_tags()
+            if tags:
+                st.session_state["gerrit_tags"] = tags
+                st.rerun()
+            else:
+                st.warning("No tags found")
+
+    _default_tags = [
+        "android-14.0.0_r75",
+        "android-14.0.0_r74",
+        "android-14.0.0_r67",
+    ]
+    tag_options = st.session_state.get("gerrit_tags", _default_tags)
+
     with col_tag:
-        tag = st.selectbox(
-            "Tag",
-            options=["android14-release", "android14-qpr3-release"],
-            index=0,
-        )
+        tag = st.selectbox("Tag", options=tag_options, index=0)
 
     if st.button("Pull VHAL Source", type="primary"):
         fetcher = GerritFetcher()
