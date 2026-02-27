@@ -10,6 +10,7 @@ import streamlit as st
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from vhal_gen.builder.stub_build import StubBuilder
 from vhal_gen.classifier.signal_classifier import SignalClassifier
 from vhal_gen.fetcher.gerrit_fetcher import GerritFetcher
 from vhal_gen.generator.generator_engine import GeneratorEngine
@@ -373,26 +374,32 @@ with tab_ivi:
 
         if st.button("Generate", type="primary"):
             vhal_root = Path(vhal_path)
-            sdk_path = Path(sdk_dir) if sdk_dir and Path(sdk_dir).exists() else None
-            with st.spinner("Generating IVI package into VHAL tree..."):
-                engine = GeneratorEngine(
-                    mappings=mappings,
-                    model=model,
-                    sdk_source_dir=sdk_path,
-                )
-                generated = engine.generate(vhal_root=vhal_root)
-                bridge_dir = vhal_root / "impl" / "bridge"
-                st.session_state["generated_files"] = generated
-                st.session_state["code_generated"] = True
-                st.session_state["bridge_dir"] = str(bridge_dir)
+            if not vhal_root.exists():
+                st.error(f"VHAL directory not found: {vhal_root}. Pull VHAL source first.")
+            else:
+                sdk_path = Path(sdk_dir) if sdk_dir and Path(sdk_dir).exists() else None
+                try:
+                    with st.spinner("Generating IVI package into VHAL tree..."):
+                        engine = GeneratorEngine(
+                            mappings=mappings,
+                            model=model,
+                            sdk_source_dir=sdk_path,
+                        )
+                        generated = engine.generate(vhal_root=vhal_root)
+                        bridge_dir = vhal_root / "impl" / "bridge"
+                        st.session_state["generated_files"] = generated
+                        st.session_state["code_generated"] = True
+                        st.session_state["bridge_dir"] = str(bridge_dir)
 
-            st.success(
-                f"Generated {len(generated)} files into {bridge_dir}\n\n"
-                "VehicleService.cpp and vhal/Android.bp auto-modified."
-            )
-            st.rerun()
+                    st.success(
+                        f"Generated {len(generated)} files into {bridge_dir}\n\n"
+                        "VehicleService.cpp and vhal/Android.bp auto-modified."
+                    )
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Generation failed: {e}")
 
-        if st.session_state.get("code_generated"):
+        if st.session_state.get("code_generated") and st.session_state.get("bridge_dir"):
             generated = st.session_state["generated_files"]
             bridge_dir = Path(st.session_state["bridge_dir"])
 
@@ -436,10 +443,16 @@ with tab_ivi:
 
     runner = ShellRunner()
 
-    col_b, col_d, col_e, col_v = st.columns(4)
+    col_b, col_stub, col_d, col_e, col_v = st.columns(5)
 
     with col_b:
         build_clicked = st.button("Build VHAL", use_container_width=True)
+    with col_stub:
+        stub_clicked = st.button(
+            "Compile Check (Stubs)",
+            use_container_width=True,
+            disabled=not st.session_state.get("code_generated", False),
+        )
     with col_d:
         deploy_clicked = st.button("Deploy to Device", use_container_width=True)
     with col_e:
@@ -468,6 +481,38 @@ with tab_ivi:
                     "```"
                 )
                 status.update(label="See build instructions", state="complete")
+
+    if stub_clicked:
+        vhal_path = st.session_state.get("vhal_path")
+        if not vhal_path:
+            st.warning("Pull VHAL source and generate code first.")
+        else:
+            builder = StubBuilder()
+            with st.status("Running compile check (stubs)...", expanded=True) as status:
+                all_lines: list[str] = []
+                for line in builder.compile_check(Path(vhal_path)):
+                    all_lines.append(line)
+                    if line.startswith("PASS"):
+                        st.write(f":white_check_mark: {line}")
+                    elif line.startswith("FAIL"):
+                        st.write(f":x: {line}")
+                    elif line.startswith("ERROR:"):
+                        st.error(line)
+                    elif line.startswith("SKIP"):
+                        st.write(f":fast_forward: {line}")
+                    elif line.startswith("Checking"):
+                        st.write(line)
+                    elif line.startswith("  "):
+                        st.code(line.strip(), language="text")
+                    elif line:
+                        st.write(line)
+
+                has_fail = any(l.startswith("FAIL") for l in all_lines)
+                has_error = any(l.startswith("ERROR:") for l in all_lines)
+                if has_fail or has_error:
+                    status.update(label="Compile check failed", state="error")
+                else:
+                    status.update(label="Compile check passed", state="complete")
 
     if deploy_clicked:
         with st.status("Deploying to device...", expanded=True) as status:

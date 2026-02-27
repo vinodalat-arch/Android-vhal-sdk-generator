@@ -9,6 +9,7 @@ from pathlib import Path
 
 import click
 
+from .builder.stub_build import StubBuilder
 from .classifier.signal_classifier import SignalClassifier
 from .generator.generator_engine import GeneratorEngine
 from .parser.model_loader import load_flync_model
@@ -136,6 +137,36 @@ def classify(model_dir: str):
             f"{'Yes' if m.is_vendor else 'No':<6} "
             f"{'RX' if m.is_rx else 'TX':<3}"
         )
+
+
+@main.command("compile-check")
+@click.option(
+    "--vhal-dir",
+    "vhal_dir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+    help="Path to pulled VHAL source tree with generated bridge code.",
+)
+def compile_check(vhal_dir: str):
+    """Run clang++ syntax check on generated bridge code using stub headers."""
+    vhal_root = Path(vhal_dir)
+    builder = StubBuilder()
+    has_fail = False
+    for line in builder.compile_check(vhal_root):
+        if line.startswith("PASS"):
+            click.echo(click.style(f"  {line}", fg="green"))
+        elif line.startswith("FAIL"):
+            click.echo(click.style(f"  {line}", fg="red"))
+            has_fail = True
+        elif line.startswith("ERROR:"):
+            click.echo(click.style(line, fg="red", bold=True))
+            has_fail = True
+        elif line.startswith("  "):
+            # Diagnostic detail from clang
+            click.echo(click.style(f"    {line.strip()}", fg="yellow"))
+        elif line:
+            click.echo(line)
+    sys.exit(1 if has_fail else 0)
 
 
 if __name__ == "__main__":
