@@ -172,10 +172,10 @@ class GeneratorEngine:
             logger.warning("VehicleService.cpp already patched or no FakeVehicleHardware found")
 
     def _modify_vhal_android_bp(self, vhal_root: Path) -> None:
-        """Modify impl/vhal/Android.bp to link BridgeVehicleHardware.
+        """Modify the cc_binary block in impl/vhal/Android.bp.
 
-        Uses targeted string replacements (not a patch) since the binary name
-        (@V1, @V3) varies by tag.
+        Only touches the cc_binary block (the VHAL service binary).
+        Leaves cc_library, cc_fuzz, and other blocks unchanged.
         """
         bp_path = vhal_root / "impl" / "vhal" / "Android.bp"
         if not bp_path.exists():
@@ -185,43 +185,78 @@ class GeneratorEngine:
         content = bp_path.read_text()
         original = content
 
+        # Find the cc_binary block by tracking brace depth
+        block_start, block_end = self._find_top_level_block(content, "cc_binary")
+        if block_start is None:
+            logger.warning("cc_binary block not found in vhal/Android.bp")
+            return
+
+        before = content[:block_start]
+        block = content[block_start:block_end]
+        after = content[block_end:]
+
         # 1. Remove FakeVehicleHardwareDefaults from defaults
-        content = re.sub(
+        block = re.sub(
             r'[ \t]*"FakeVehicleHardwareDefaults",\n',
             "",
-            content,
+            block,
         )
 
         # 2. Replace FakeVehicleHardware with BridgeVehicleHardware in static_libs
-        content = content.replace(
+        block = block.replace(
             '"FakeVehicleHardware"',
             '"BridgeVehicleHardware"',
         )
 
         # 3. Add libjsoncpp to shared_libs if not already present
-        if '"libjsoncpp"' not in content:
-            # Find shared_libs block and add libjsoncpp
-            content = re.sub(
+        if '"libjsoncpp"' not in block:
+            block = re.sub(
                 r'(shared_libs:\s*\[)',
                 r'\1\n        "libjsoncpp",',
-                content,
+                block,
             )
 
         # 4. Add required for DefaultProperties.json if not already present
-        if '"flync-DefaultProperties.json"' not in content:
-            # Insert required after the shared_libs block closing bracket
-            content = re.sub(
+        if '"flync-DefaultProperties.json"' not in block:
+            block = re.sub(
                 r'(shared_libs:\s*\[[^\]]*\],)',
                 r'\1\n    required: ["flync-DefaultProperties.json"],',
-                content,
+                block,
                 flags=re.DOTALL,
             )
 
+        content = before + block + after
+
         if content != original:
             bp_path.write_text(content)
-            logger.info("Modified vhal/Android.bp: swapped Fake->Bridge deps")
+            logger.info("Modified vhal/Android.bp: swapped Fake->Bridge deps in cc_binary")
         else:
             logger.warning("vhal/Android.bp already modified or unexpected format")
+
+    @staticmethod
+    def _find_top_level_block(content: str, block_type: str) -> tuple:
+        """Find the start and end of a top-level block (e.g. cc_binary {...}).
+
+        Returns (start_index, end_index) or (None, None) if not found.
+        """
+        pattern = re.compile(rf'^{re.escape(block_type)}\s*\{{', re.MULTILINE)
+        match = pattern.search(content)
+        if not match:
+            return None, None
+
+        start = match.start()
+        depth = 0
+        i = match.end() - 1  # position of the opening brace
+        while i < len(content):
+            if content[i] == '{':
+                depth += 1
+            elif content[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    return start, i + 1
+            i += 1
+
+        return None, None
 
     def _copy_sdk_files(self, bridge_dir: Path) -> list[Path]:
         """Copy Vehicle Body SDK files verbatim into the bridge directory.

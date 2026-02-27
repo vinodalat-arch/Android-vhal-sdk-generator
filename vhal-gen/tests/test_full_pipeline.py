@@ -52,6 +52,23 @@ cc_binary {
         "libbinder_ndk",
     ],
 }
+
+cc_library {
+    name: "DefaultVehicleHal",
+    shared_libs: [
+        "libbinder_ndk",
+    ],
+}
+
+cc_fuzz {
+    name: "vehicle-default-service_fuzzer",
+    defaults: [
+        "FakeVehicleHardwareDefaults",
+    ],
+    static_libs: [
+        "FakeVehicleHardware",
+    ],
+}
 """
 
 
@@ -139,11 +156,22 @@ def test_full_pipeline():
         assert "BridgeVehicleHardware" in vs
         assert "FakeVehicleHardware" not in vs
 
-        # Verify vhal/Android.bp was modified
+        # Verify vhal/Android.bp cc_binary was modified
         vhal_bp = (vhal_root / "impl" / "vhal" / "Android.bp").read_text()
         assert '"BridgeVehicleHardware"' in vhal_bp
-        assert '"FakeVehicleHardware"' not in vhal_bp
-        assert "FakeVehicleHardwareDefaults" not in vhal_bp
+
+        # Verify cc_fuzz block was NOT modified
+        cc_fuzz_start = vhal_bp.index("cc_fuzz {")
+        cc_fuzz_block = vhal_bp[cc_fuzz_start:]
+        assert '"FakeVehicleHardware"' in cc_fuzz_block, "cc_fuzz should keep FakeVehicleHardware"
+        assert "FakeVehicleHardwareDefaults" in cc_fuzz_block, "cc_fuzz should keep FakeVehicleHardwareDefaults"
+
+        # Verify cc_library block was NOT modified
+        cc_lib_start = vhal_bp.index("cc_library {")
+        cc_lib_section = vhal_bp[cc_lib_start:]
+        cc_lib_end = cc_lib_section.index("\n}\n") + 3
+        cc_lib_block = cc_lib_section[:cc_lib_end]
+        assert '"libjsoncpp"' not in cc_lib_block, "cc_library should not have libjsoncpp"
     finally:
         shutil.rmtree(tmpdir)
 

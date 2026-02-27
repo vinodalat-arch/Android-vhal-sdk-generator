@@ -87,6 +87,36 @@ cc_binary {
         "IVehicleHardware",
     ],
 }
+
+cc_library {
+    name: "DefaultVehicleHal",
+    vendor: true,
+    defaults: [
+        "VehicleHalDefaults",
+    ],
+    static_libs: [
+        "VehicleHalUtils",
+    ],
+    shared_libs: [
+        "libbinder_ndk",
+    ],
+}
+
+cc_fuzz {
+    name: "android.hardware.automotive.vehicle-default-service_fuzzer",
+    vendor: true,
+    defaults: [
+        "FakeVehicleHardwareDefaults",
+        "VehicleHalDefaults",
+        "service_fuzzer_defaults",
+    ],
+    static_libs: [
+        "DefaultVehicleHal",
+        "FakeVehicleHardware",
+        "VehicleHalUtils",
+    ],
+    srcs: ["src/fuzzer.cpp"],
+}
 """
 
 
@@ -204,20 +234,17 @@ def test_vehicle_service_cpp_patched():
 
 
 def test_vhal_android_bp_modified():
-    """Verify vhal/Android.bp is modified to use BridgeVehicleHardware deps."""
+    """Verify vhal/Android.bp cc_binary block is modified, others untouched."""
     tmpdir, vhal_root, _ = _generate_into_mock_tree()
     try:
         bp_path = vhal_root / "impl" / "vhal" / "Android.bp"
         content = bp_path.read_text()
 
-        # BridgeVehicleHardware should replace FakeVehicleHardware in static_libs
+        # --- cc_binary block should be modified ---
+        # BridgeVehicleHardware should replace FakeVehicleHardware in cc_binary
         assert '"BridgeVehicleHardware"' in content
-        assert '"FakeVehicleHardware"' not in content
 
-        # FakeVehicleHardwareDefaults should be removed from defaults
-        assert "FakeVehicleHardwareDefaults" not in content
-
-        # libjsoncpp should be added to shared_libs
+        # libjsoncpp should be added to cc_binary shared_libs
         assert '"libjsoncpp"' in content
 
         # required for DefaultProperties.json
@@ -225,6 +252,22 @@ def test_vhal_android_bp_modified():
 
         # Original binary name should be preserved
         assert "android.hardware.automotive.vehicle@V1-default-service" in content
+
+        # --- cc_library block should be UNTOUCHED ---
+        # cc_library (DefaultVehicleHal) should not have libjsoncpp or required added
+        # Split by block to check individually
+        cc_lib_start = content.index("cc_library {")
+        cc_lib_section = content[cc_lib_start:]
+        cc_lib_end = cc_lib_section.index("\n}\n") + 3
+        cc_lib_block = cc_lib_section[:cc_lib_end]
+        assert '"libjsoncpp"' not in cc_lib_block, "cc_library should not have libjsoncpp"
+        assert "flync-DefaultProperties" not in cc_lib_block, "cc_library should not have required"
+
+        # --- cc_fuzz block should be UNTOUCHED ---
+        cc_fuzz_start = content.index("cc_fuzz {")
+        cc_fuzz_block = content[cc_fuzz_start:]
+        assert '"FakeVehicleHardware"' in cc_fuzz_block, "cc_fuzz should keep FakeVehicleHardware"
+        assert "FakeVehicleHardwareDefaults" in cc_fuzz_block, "cc_fuzz should keep FakeVehicleHardwareDefaults"
     finally:
         shutil.rmtree(tmpdir)
 
