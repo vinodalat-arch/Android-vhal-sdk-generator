@@ -24,15 +24,24 @@ cc_library {
     ],
 }
 
-// Standalone daemon -- signal pack/unpack + vehicle network transport.
+// Standalone daemon -- calls Vehicle Body SDK get_*() / set_*() functions.
 // Started by init via flync-daemon.rc at boot.
 cc_binary {
     name: "flync-daemon",
     vendor: true,
     srcs: [
         "FlyncDaemon.cpp",
-        "UdpTransport.cpp",
-        "MockTransport.cpp",
+        "sdk/com/src/ComConfig.cpp",
+        "sdk/com/src/CanConfig.cpp",
+        "sdk/com/src/com_utils.cpp",
+        "sdk/can_io/src/iodata.cc",
+        "sdk/app/swc/Read_App_Signal_Data.cpp",
+        "sdk/app/swc/Write_App_Signal_Data.cpp",
+    ],
+    local_include_dirs: [
+        "sdk/com/include",
+        "sdk/can_io/include",
+        "sdk/app/swc",
     ],
     shared_libs: [
         "libbase",

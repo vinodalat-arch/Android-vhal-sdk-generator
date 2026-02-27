@@ -27,17 +27,17 @@ def main():
 @click.argument("model_dir", type=click.Path(exists=True, file_okay=False))
 @click.option("-o", "--output", "output_dir", default="./output", help="Output directory")
 @click.option(
-    "--transport",
-    type=click.Choice(["mock", "udp"]),
-    default="mock",
-    help="Transport mode for flync-daemon",
+    "--sdk-dir",
+    "sdk_dir",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Vehicle Body SDK source directory (e.g. performance-stack-Body-lighting-Draft/src/)",
 )
-@click.option("--udp-addr", default="10.0.11.1", help="UDP target address")
-@click.option("--udp-port", default=5555, type=int, help="UDP port")
-def generate(model_dir: str, output_dir: str, transport: str, udp_addr: str, udp_port: int):
+def generate(model_dir: str, output_dir: str, sdk_dir: str | None):
     """Generate VHAL code from FLYNC YAML model directory."""
     model_path = Path(model_dir)
     out_path = Path(output_dir)
+    sdk_source_dir = Path(sdk_dir) if sdk_dir else None
 
     click.echo(f"Loading FLYNC model from: {model_path}")
     model = load_flync_model(model_path)
@@ -50,13 +50,13 @@ def generate(model_dir: str, output_dir: str, transport: str, udp_addr: str, udp
     vendor = [m for m in mappings if m.is_vendor]
     click.echo(f"  {len(standard)} standard AOSP mappings, {len(vendor)} vendor mappings")
 
-    click.echo(f"Generating code (transport={transport})...")
+    click.echo("Generating code...")
+    if sdk_source_dir:
+        click.echo(f"  SDK source: {sdk_source_dir}")
     engine = GeneratorEngine(
         mappings=mappings,
         model=model,
-        transport=transport,
-        udp_addr=udp_addr,
-        udp_port=udp_port,
+        sdk_source_dir=sdk_source_dir,
     )
     generated = engine.generate(out_path)
     click.echo(f"  Generated {len(generated)} files to {out_path}")

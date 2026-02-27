@@ -63,6 +63,9 @@ class PropertyMapping:
     scale: float = 1.0
     offset: float = 0.0
     convert_kmh_to_ms: bool = False
+    # SDK function names (populated by classifier from signal naming convention)
+    sdk_getter: Optional[str] = None  # e.g. "get_u8_TurnLight_req"
+    sdk_setter: Optional[str] = None  # e.g. "set_bo_HazardLight_cmd"
 
     @property
     def property_id_hex(self) -> str:

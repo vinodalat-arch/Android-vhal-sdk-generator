@@ -133,6 +133,11 @@ class SignalClassifier:
             property_id,
         )
 
+        is_rx = pdu.direction == Direction.RX
+        sdk_getter, sdk_setter = self._derive_sdk_function_names(
+            signal.name, is_rx,
+        )
+
         return PropertyMapping(
             signal_name=signal.name,
             pdu_name=pdu.name,
@@ -148,12 +153,14 @@ class SignalClassifier:
             start_bit=signal.start_bit,
             bit_length=signal.bit_length,
             bitmask=signal.bitmask,
-            is_rx=(pdu.direction == Direction.RX),
+            is_rx=is_rx,
             lower_limit=signal.lower_limit,
             upper_limit=signal.upper_limit,
             scale=signal.scale,
             offset=signal.offset,
             convert_kmh_to_ms=convert_kmh_to_ms,
+            sdk_getter=sdk_getter,
+            sdk_setter=sdk_setter,
         )
 
     # -- vendor (fallback) --------------------------------------------------
@@ -182,6 +189,11 @@ class SignalClassifier:
             vendor_id,
         )
 
+        is_rx = pdu.direction == Direction.RX
+        sdk_getter, sdk_setter = self._derive_sdk_function_names(
+            signal.name, is_rx,
+        )
+
         return PropertyMapping(
             signal_name=signal.name,
             pdu_name=pdu.name,
@@ -197,15 +209,35 @@ class SignalClassifier:
             start_bit=signal.start_bit,
             bit_length=signal.bit_length,
             bitmask=signal.bitmask,
-            is_rx=(pdu.direction == Direction.RX),
+            is_rx=is_rx,
             lower_limit=signal.lower_limit,
             upper_limit=signal.upper_limit,
             scale=signal.scale,
             offset=signal.offset,
             convert_kmh_to_ms=False,
+            sdk_getter=sdk_getter,
+            sdk_setter=sdk_setter,
         )
 
     # -- helpers ------------------------------------------------------------
+
+    @staticmethod
+    def _derive_sdk_function_names(
+        signal_name: str,
+        is_rx: bool,
+    ) -> tuple[str | None, str | None]:
+        """Derive SDK getter/setter function names from the signal name.
+
+        The Vehicle Body SDK uses a simple naming convention:
+        - RX signals: ``get_{signal_name}``
+        - TX signals: ``set_{signal_name}``
+
+        The type prefix (``u8_``, ``bo_``, etc.) is already part of the
+        signal name in the FLYNC model, so no additional derivation is needed.
+        """
+        if is_rx:
+            return f"get_{signal_name}", None
+        return None, f"set_{signal_name}"
 
     @staticmethod
     def _infer_property_type(base_data_type: str) -> VehiclePropertyType:

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import logging
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -17,6 +17,24 @@ logger = logging.getLogger(__name__)
 # Template directory relative to this file
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 
+# SDK files to copy verbatim from the Vehicle Body SDK source tree.
+# Keys are source-relative paths, values are destination-relative paths
+# under output/vhal/sdk/.
+SDK_FILE_MAP: dict[str, str] = {
+    "com/include/ComConfig.h": "sdk/com/include/ComConfig.h",
+    "com/include/CanConfig.h": "sdk/com/include/CanConfig.h",
+    "com/include/com_utils.h": "sdk/com/include/com_utils.h",
+    "com/src/ComConfig.cpp": "sdk/com/src/ComConfig.cpp",
+    "com/src/CanConfig.cpp": "sdk/com/src/CanConfig.cpp",
+    "com/src/com_utils.cpp": "sdk/com/src/com_utils.cpp",
+    "can_io/include/iodata.h": "sdk/can_io/include/iodata.h",
+    "can_io/src/iodata.cc": "sdk/can_io/src/iodata.cc",
+    "app/swc/Read_App_Signal_Data.h": "sdk/app/swc/Read_App_Signal_Data.h",
+    "app/swc/Read_App_Signal_Data.cpp": "sdk/app/swc/Read_App_Signal_Data.cpp",
+    "app/swc/Write_App_Signal_Data.h": "sdk/app/swc/Write_App_Signal_Data.h",
+    "app/swc/Write_App_Signal_Data.cpp": "sdk/app/swc/Write_App_Signal_Data.cpp",
+}
+
 
 class GeneratorEngine:
     """Generates all output files from FLYNC model and signal mappings."""
@@ -25,15 +43,11 @@ class GeneratorEngine:
         self,
         mappings: list[PropertyMapping],
         model: FlyncModel,
-        transport: str = "mock",
-        udp_addr: str = "10.0.11.1",
-        udp_port: int = 5555,
+        sdk_source_dir: Path | None = None,
     ):
         self.mappings = mappings
         self.model = model
-        self.transport = transport
-        self.udp_addr = udp_addr
-        self.udp_port = udp_port
+        self.sdk_source_dir = sdk_source_dir
         self._env = Environment(
             loader=FileSystemLoader(str(TEMPLATE_DIR)),
             keep_trailing_newline=True,
@@ -67,9 +81,6 @@ class GeneratorEngine:
             "standard_mappings": standard_mappings,
             "signal_entries": signal_entries,
             "pdu_entries": pdu_entries,
-            "transport": self.transport,
-            "udp_addr": self.udp_addr,
-            "udp_port": self.udp_port,
             "config_json_path": "/vendor/etc/automotive/vhal/DefaultProperties.json",
         }
 
@@ -83,10 +94,6 @@ class GeneratorEngine:
             ("VehicleService.cpp.j2", vhal_dir / "VehicleService.cpp"),
             ("FlyncDaemon.h.j2", vhal_dir / "FlyncDaemon.h"),
             ("FlyncDaemon.cpp.j2", vhal_dir / "FlyncDaemon.cpp"),
-            ("UdpTransport.h.j2", vhal_dir / "UdpTransport.h"),
-            ("UdpTransport.cpp.j2", vhal_dir / "UdpTransport.cpp"),
-            ("MockTransport.h.j2", vhal_dir / "MockTransport.h"),
-            ("MockTransport.cpp.j2", vhal_dir / "MockTransport.cpp"),
             ("Android.bp.j2", vhal_dir / "Android.bp"),
             ("flync-daemon.rc.j2", vhal_dir / "flync-daemon.rc"),
             ("INTEGRATION.md.j2", vhal_dir / "INTEGRATION.md"),
@@ -105,7 +112,33 @@ class GeneratorEngine:
                 logger.error("Failed to generate %s: %s", template_name, e)
                 raise
 
+        # Copy SDK files if source directory is provided
+        if self.sdk_source_dir is not None:
+            sdk_files = self._copy_sdk_files(vhal_dir)
+            generated.extend(sdk_files)
+
         return generated
+
+    def _copy_sdk_files(self, vhal_dir: Path) -> list[Path]:
+        """Copy Vehicle Body SDK files verbatim into the output directory.
+
+        Returns list of copied file paths.
+        """
+        copied = []
+        for src_rel, dst_rel in SDK_FILE_MAP.items():
+            src_path = self.sdk_source_dir / src_rel
+            dst_path = vhal_dir / dst_rel
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+
+            if not src_path.exists():
+                logger.warning("SDK file not found: %s", src_path)
+                continue
+
+            shutil.copy2(src_path, dst_path)
+            copied.append(dst_path)
+            logger.info("Copied SDK: %s -> %s", src_path, dst_path)
+
+        return copied
 
     def _build_signal_entries(self) -> list[dict]:
         """Build signal entry dicts for daemon signal table."""
@@ -125,6 +158,8 @@ class GeneratorEngine:
                 "scale": m.scale,
                 "offset": m.offset,
                 "convert_kmh_to_ms": m.convert_kmh_to_ms,
+                "sdk_getter": m.sdk_getter,
+                "sdk_setter": m.sdk_setter,
                 "lower_limit": 0,
                 "upper_limit": (1 << m.bit_length) - 1,
             })

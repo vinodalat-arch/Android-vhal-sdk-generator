@@ -30,11 +30,20 @@ def test_full_pipeline():
     assert "bo_DRL_cmd" in by_name
     assert by_name["bo_DRL_cmd"].is_vendor
 
+    # Verify SDK function names are populated
+    turn_light = by_name["u8_TurnLight_req"]
+    assert turn_light.sdk_getter == "get_u8_TurnLight_req"
+    assert turn_light.sdk_setter is None  # RX signal
+
+    drl = by_name["bo_DRL_cmd"]
+    assert drl.sdk_setter == "set_bo_DRL_cmd"
+    assert drl.sdk_getter is None  # TX signal
+
     # 3. Generate
     with tempfile.TemporaryDirectory() as tmpdir:
-        engine = GeneratorEngine(mappings=mappings, model=model, transport="mock")
+        engine = GeneratorEngine(mappings=mappings, model=model)
         generated = engine.generate(Path(tmpdir))
-        assert len(generated) == 17
+        assert len(generated) == 13
 
         # Verify JSON (AOSP format with apiVersion wrapper)
         json_raw = json.loads((Path(tmpdir) / "vhal" / "DefaultProperties.json").read_text())
@@ -46,16 +55,25 @@ def test_full_pipeline():
         vendor_h = (Path(tmpdir) / "vhal" / "VendorProperties.h").read_text()
         assert "#pragma once" in vendor_h
 
-        # Verify Android.bp has bridge lib and daemon (no service binary)
+        # Verify Android.bp has bridge lib, daemon, and SDK sources
         bp = (Path(tmpdir) / "vhal" / "Android.bp").read_text()
         assert "BridgeVehicleHardware" in bp
         assert "flync-daemon" in bp
         assert "@V1" not in bp  # No version-specific references
+        assert "sdk/com/src/ComConfig.cpp" in bp
+        assert "sdk/app/swc/Read_App_Signal_Data.cpp" in bp
 
-        # Verify daemon rc
+        # Verify daemon uses SDK includes
+        daemon_cpp = (Path(tmpdir) / "vhal" / "FlyncDaemon.cpp").read_text()
+        assert "Read_App_Signal_Data.h" in daemon_cpp
+        assert "Write_App_Signal_Data.h" in daemon_cpp
+        assert "extractBits" not in daemon_cpp
+        assert "packBits" not in daemon_cpp
+
+        # Verify daemon rc (no --mock flag)
         rc = (Path(tmpdir) / "vhal" / "flync-daemon.rc").read_text()
         assert "flync-daemon" in rc
-        assert "--mock" in rc
+        assert "--mock" not in rc
 
 
 def test_signal_bit_positions_match_reference():
