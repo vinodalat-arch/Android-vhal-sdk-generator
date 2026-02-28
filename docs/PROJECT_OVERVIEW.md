@@ -269,6 +269,10 @@ vhal-gen gcp-status --instance <instance-name> --zone us-central1-a
 streamlit run streamlit_app/app.py
 ```
 The UI provides:
+- **Architecture diagram** in Section 3 — interactive HTML/CSS layered diagram of the
+  Android Automotive stack. Highlights which layers vhal-gen modifies (Bridge, Daemon,
+  VehicleService, SDK) with color-coded tags (GENERATED, PATCHED, COPIED). Flow banner
+  updates based on pipeline state
 - **"Compile Check (Stubs)"** button in Section 4a — runs the full 8-file compile check
   and streams per-file PASS/FAIL results
 - **GCP Instance Status card** in Section 4b — check instance readiness before building

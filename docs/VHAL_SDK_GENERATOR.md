@@ -469,6 +469,11 @@ The incremental pipeline:
 The Streamlit UI (Section 4b) also provides both modes with a GCP Instance
 Status card that shows whether the instance is ready for incremental builds.
 
+The UI also features an **interactive architecture diagram** (Section 3) showing the
+full Android Automotive layer stack with highlighted layers indicating what vhal-gen
+modifies. Tags (GENERATED, PATCHED, COPIED) and a flow banner update based on the
+current pipeline state.
+
 ---
 
 ## 7. YAML to VHAL Property Mapping

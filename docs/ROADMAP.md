@@ -18,6 +18,10 @@
 - **Incremental GCP build** — sync code to a pre-existing GCP Compute Engine instance,
   run `mma` incremental build (~5–15 min), and pull artifacts back. GCP instance status
   check available via `gcp-status` CLI command and Streamlit UI status card
+- **Interactive architecture diagram** — HTML/CSS layered diagram of the Android Automotive
+  stack shown in the Streamlit UI, highlighting exactly which layers vhal-gen modifies
+  (BridgeVehicleHardware, FlyncDaemon, VehicleService, SDK). Flow banner updates based
+  on pipeline progress (pre-generate, post-generate, post-deploy)
 
 ## Future (v1.1+)
 
@@ -47,3 +51,4 @@
 - Property override persistence
 - Diff view for regeneration
 - Export/import mapping configurations
+- Architecture diagram animation during build/deploy pipeline stages
