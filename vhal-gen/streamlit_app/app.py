@@ -18,6 +18,174 @@ from vhal_gen.parser.model_loader import load_flync_model
 from vhal_gen.pipeline.deploy_orchestrator import DeployOrchestrator
 from vhal_gen.shell.runner import ShellRunner
 
+
+# ── Architecture diagram ──
+
+def _render_architecture_diagram(
+    hl_bridge: bool = False,
+    hl_daemon: bool = False,
+    hl_vhal_service: bool = False,
+    hl_sdk: bool = False,
+    hl_can: bool = False,
+    flow_text: str = "",
+) -> str:
+    """Return HTML for the Android Automotive layered architecture diagram.
+
+    Highlighted layers get an orange glow to show what vhal-gen modifies.
+    """
+    def _hl(flag: bool) -> str:
+        return "highlighted" if flag else ""
+
+    def _tag(flag: bool, label: str, cls: str) -> str:
+        if not flag:
+            return ""
+        return f'<span class="layer-tag {cls}">{label}</span>'
+
+    def _tag_inline(flag: bool, label: str, cls: str) -> str:
+        if not flag:
+            return ""
+        return (
+            f'<div style="margin-top:4px">'
+            f'<span class="layer-tag {cls}" style="position:static">{label}</span>'
+            f'</div>'
+        )
+
+    return f"""
+<style>
+  .arch-container {{
+    font-family: 'Inter', -apple-system, sans-serif;
+    max-width: 680px;
+    margin: 0 auto;
+  }}
+  .layer {{
+    border: 2px solid #444;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin: 4px 0;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+  }}
+  .layer-label {{
+    font-size: 13px;
+    font-weight: 600;
+    color: #e0e0e0;
+  }}
+  .layer-sub {{
+    font-size: 11px;
+    color: #999;
+    margin-top: 2px;
+  }}
+  .layer-tag {{
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }}
+  .l-app       {{ background: #1a2332; border-color: #2d4a6e; }}
+  .l-framework {{ background: #1a2332; border-color: #2d4a6e; }}
+  .l-car       {{ background: #1a2332; border-color: #2d4a6e; }}
+  .l-vhal      {{ background: #1e2a1e; border-color: #3d6b3d; }}
+  .l-bridge    {{ background: #2a1e1e; border-color: #6b3d3d; }}
+  .l-sdk       {{ background: #2a2a1e; border-color: #6b6b3d; }}
+  .l-can       {{ background: #1e1e2a; border-color: #3d3d6b; }}
+  .highlighted {{
+    border-color: #ff6b35 !important;
+    background: #3a2210 !important;
+    box-shadow: 0 0 15px rgba(255, 107, 53, 0.3);
+  }}
+  .highlighted .layer-label {{ color: #ff9966; }}
+  .tag-generated {{ background: #ff6b35; color: #fff; }}
+  .tag-patched   {{ background: #e6b800; color: #1a1a1a; }}
+  .tag-copied    {{ background: #4da6ff; color: #fff; }}
+  .vhal-inner {{
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 8px;
+  }}
+  .component {{
+    border: 1.5px dashed #666;
+    border-radius: 6px;
+    padding: 8px 14px;
+    min-width: 140px;
+    transition: all 0.3s ease;
+  }}
+  .component.highlighted {{ border-style: solid; }}
+  .flow-banner {{
+    text-align: center;
+    padding: 8px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #ff9966;
+    background: #2a1a10;
+    border-radius: 6px;
+    border: 1px solid #ff6b3544;
+    min-height: 20px;
+  }}
+</style>
+
+<div class="arch-container">
+
+  <div class="layer l-app">
+    <div class="layer-label">Android Applications</div>
+    <div class="layer-sub">Car Settings, Maps, Media, OEM Apps</div>
+  </div>
+
+  <div class="layer l-framework">
+    <div class="layer-label">Android Framework</div>
+    <div class="layer-sub">CarPropertyManager API</div>
+  </div>
+
+  <div class="layer l-car">
+    <div class="layer-label">Car Service</div>
+    <div class="layer-sub">VehiclePropertyService (system_server)</div>
+  </div>
+
+  <div class="layer l-vhal {_hl(hl_vhal_service)}" style="padding-bottom:14px;">
+    <div class="layer-label">VHAL Service</div>
+    <div class="layer-sub">VehicleService.cpp (patched: Fake &rarr; Bridge)</div>
+    {_tag(hl_vhal_service, "PATCHED", "tag-patched")}
+    <div class="vhal-inner">
+      <div class="component l-bridge {_hl(hl_bridge)}">
+        <div class="layer-label">BridgeVehicleHardware</div>
+        <div class="layer-sub">IVehicleHardware impl</div>
+        <div class="layer-sub">get / set / subscribe</div>
+        {_tag_inline(hl_bridge, "GENERATED", "tag-generated")}
+      </div>
+      <div style="display:flex;align-items:center;color:#888;font-size:20px;">&#x2194;</div>
+      <div class="component l-bridge {_hl(hl_daemon)}">
+        <div class="layer-label">FlyncDaemon</div>
+        <div class="layer-sub">Child process (fork+exec)</div>
+        <div class="layer-sub">IPC via socketpair</div>
+        {_tag_inline(hl_daemon, "GENERATED", "tag-generated")}
+      </div>
+    </div>
+  </div>
+
+  <div class="layer l-sdk {_hl(hl_sdk)}">
+    <div class="layer-label">Vehicle Body SDK</div>
+    <div class="layer-sub">Read_App_Signal_Data / Write_App_Signal_Data / ComConfig / CanConfig</div>
+    {_tag(hl_sdk, "COPIED", "tag-copied")}
+  </div>
+
+  <div class="layer l-can {_hl(hl_can)}">
+    <div class="layer-label">CAN Bus / Vehicle Network</div>
+    <div class="layer-sub">Physical ECUs, Sensors, Actuators</div>
+  </div>
+
+  <div class="flow-banner">
+    {flow_text if flow_text else
+     "Orange-highlighted layers are modified by vhal-gen when you click Generate"}
+  </div>
+
+</div>
+"""
+
 # ── Page config ──
 st.set_page_config(
     page_title="KPIT Vehicle SDK Generator",
@@ -357,6 +525,32 @@ with tab_ivi:
     # Section 3: Generate IVI Package
     # ─────────────────────────────────────────────
     st.header("3. Generate IVI Package")
+
+    # ── Architecture Diagram ──
+    code_gen = st.session_state.get("code_generated", False)
+    deploy_done = st.session_state.get("deploy_tested", False)
+    has_sdk = bool(st.session_state.get("sdk_source_dir", ""))
+
+    if deploy_done:
+        _flow = ("Generated, built, and deployed to emulator. "
+                 "VHAL service is running with BridgeVehicleHardware + FlyncDaemon.")
+    elif code_gen:
+        _flow = ("Code generated: BridgeVehicleHardware.cpp, FlyncDaemon.cpp, "
+                 "VehicleService.cpp patched"
+                 + (", SDK files copied" if has_sdk else "")
+                 + ". Ready for build & deploy.")
+    else:
+        _flow = ("Click Generate to produce the highlighted layers. "
+                 "vhal-gen creates the Bridge + Daemon, patches VehicleService, "
+                 "and copies SDK files into the VHAL tree.")
+
+    st.html(_render_architecture_diagram(
+        hl_bridge=True,
+        hl_daemon=True,
+        hl_vhal_service=True,
+        hl_sdk=has_sdk,
+        flow_text=_flow,
+    ))
 
     if not st.session_state.get("model_loaded"):
         st.warning("Load a model first to generate code.")
