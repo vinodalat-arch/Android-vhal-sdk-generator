@@ -258,7 +258,10 @@ class GeneratorEngine:
         return None, None
 
     def _copy_sdk_files(self, bridge_dir: Path) -> list[Path]:
-        """Copy Vehicle Body SDK files verbatim into the bridge directory.
+        """Copy Vehicle Body SDK files into the bridge directory.
+
+        After copying, applies AOSP build compatibility patches (e.g.
+        initializing variables to avoid -Werror,-Wsometimes-uninitialized).
 
         Returns list of copied file paths.
         """
@@ -276,7 +279,31 @@ class GeneratorEngine:
             copied.append(dst_path)
             logger.info("Copied SDK: %s -> %s", src_path, dst_path)
 
+        # Apply AOSP build compatibility patches to copied SDK files.
+        self._patch_sdk_for_aosp(bridge_dir)
+
         return copied
+
+    @staticmethod
+    def _patch_sdk_for_aosp(bridge_dir: Path) -> None:
+        """Fix SDK code that fails under AOSP's strict compiler flags.
+
+        AOSP builds with -Werror which catches issues the SDK's original
+        toolchain allows. We patch the copies (never the originals).
+        """
+        com_utils = bridge_dir / "sdk" / "com" / "src" / "com_utils.cpp"
+        if com_utils.exists():
+            content = com_utils.read_text()
+            original = content
+            # Fix: uninitialized variable 'idx' triggers
+            # -Werror,-Wsometimes-uninitialized
+            content = content.replace(
+                "uint16_t idx;",
+                "uint16_t idx = 0;",
+            )
+            if content != original:
+                com_utils.write_text(content)
+                logger.info("Patched SDK: com_utils.cpp (initialized idx)")
 
     def _deduplicate_mappings(self) -> list[PropertyMapping]:
         """Return a deduplicated copy of mappings by (property_id, area_id).

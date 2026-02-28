@@ -34,7 +34,20 @@ using namespace flync;
 
 BridgeVehicleHardware::BridgeVehicleHardware() {
     LOG(INFO) << LOG_TAG << ": Initializing BridgeVehicleHardware";
-    loadPropertyConfigs("{{ config_json_path }}");
+
+    // Try primary path, fall back to alternate AOSP config directory.
+    static const char* kConfigPaths[] = {
+        "{{ config_json_path }}",
+        "/vendor/etc/automotive/vhalconfig/DefaultProperties.json",
+    };
+    for (const auto* path : kConfigPaths) {
+        std::ifstream probe(path);
+        if (probe.good()) {
+            loadPropertyConfigs(path);
+            break;
+        }
+    }
+
     spawnDaemon();
 }
 
@@ -313,6 +326,11 @@ bool BridgeVehicleHardware::recvIpcMessage(std::vector<uint8_t>& buffer) const {
 
     const auto* hdr = reinterpret_cast<const IpcMessage*>(buffer.data());
     uint32_t valueLen = hdr->value_len;
+    static constexpr uint32_t kMaxPayload = 64 * 1024;  // 64 KB sanity limit
+    if (valueLen > kMaxPayload) {
+        LOG(ERROR) << LOG_TAG << ": IPC payload too large: " << valueLen;
+        return false;
+    }
     if (valueLen > 0) {
         buffer.resize(IPC_HEADER_SIZE + valueLen);
         nread = 0;

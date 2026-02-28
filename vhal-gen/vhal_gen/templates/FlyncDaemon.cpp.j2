@@ -64,11 +64,15 @@ int32_t pollRxSignal(size_t idx) {
 }
 
 void writeTxSignal(size_t idx, int32_t value) {
+    if (value < 0 || value > 255) {
+        LOG(WARNING) << LOG_TAG << ": TX signal idx=" << idx
+                     << " value=" << value << " truncated to uint8_t";
+    }
     switch (idx) {
 {% set tx_idx = namespace(n=0) %}
 {% for sig in signal_entries %}
 {% if not sig.is_rx and sig.sdk_setter %}
-        case {{ tx_idx.n }}: {{ sig.sdk_setter }}(static_cast<uint8_t>(value)); break;
+        case {{ tx_idx.n }}: {{ sig.sdk_setter }}(static_cast<uint8_t>(value & 0xFF)); break;
 {% set tx_idx.n = tx_idx.n + 1 %}
 {% endif %}
 {% endfor %}
@@ -164,6 +168,11 @@ bool FlyncDaemon::recvIpcMessage(std::vector<uint8_t>& buffer) {
 
     const auto* hdr = reinterpret_cast<const IpcMessage*>(buffer.data());
     uint32_t valueLen = hdr->value_len;
+    static constexpr uint32_t kMaxPayload = 64 * 1024;  // 64 KB sanity limit
+    if (valueLen > kMaxPayload) {
+        LOG(ERROR) << LOG_TAG << ": IPC payload too large: " << valueLen;
+        return false;
+    }
     if (valueLen > 0) {
         buffer.resize(IPC_HEADER_SIZE + valueLen);
         nread = 0;
