@@ -198,8 +198,8 @@ class TestEmulatorDeployer:
 
         lines = _collect(deployer.deploy(tmp_path))
         pass_lines = [l for l in lines if l.startswith("PASS")]
-        # One PASS per pushed file + one for service running
-        assert len(pass_lines) == len(config.DEVICE_PATHS) + 1
+        # One PASS per pushed file + VINTF manifest + service running
+        assert len(pass_lines) == len(config.DEVICE_PATHS) + 2
 
     def test_deploy_reports_missing_artifact(self, tmp_path: Path):
         # Empty artifact directory

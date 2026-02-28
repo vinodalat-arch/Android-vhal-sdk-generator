@@ -51,6 +51,16 @@
 - Auto-build and validate
 - Notification on failures
 
+### Merge Generated Properties with AOSP Defaults
+- Generator currently produces a standalone `DefaultProperties.json` with only
+  mapped FLYNC signals (~35 properties)
+- Stock AOSP emulator ships 223+ default properties (fuel, HVAC, doors, etc.)
+- Code generator must load the existing AOSP `DefaultProperties.json`, merge
+  our custom/vendor properties on top, and output the combined file
+- Modified standard properties (e.g. overriding TURN_SIGNAL_STATE defaults)
+  should replace the AOSP entry; new vendor properties should be appended
+- Ensures the emulator retains full standard functionality plus our signals
+
 ### Extended Signal Support
 - Additional PDU types beyond body/lighting
 - Powertrain, chassis, ADAS signals

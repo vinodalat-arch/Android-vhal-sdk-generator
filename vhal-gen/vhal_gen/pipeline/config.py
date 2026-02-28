@@ -5,39 +5,61 @@ from __future__ import annotations
 # Build
 WORKFLOW_FILE = "build-vhal.yml"
 DEFAULT_AOSP_TAG = "android-14.0.0_r75"
-DEFAULT_BUILD_TARGET = "sdk_car_x86_64-trunk_staging-userdebug"
-DEFAULT_LUNCH_TARGET = "sdk_car_x86_64-trunk_staging-userdebug"
+DEFAULT_BUILD_TARGET = "sdk_car_arm64-trunk_staging-userdebug"
+DEFAULT_LUNCH_TARGET = "sdk_car_arm64-trunk_staging-userdebug"
 BUILD_TIMEOUT_SECONDS = 2 * 60 * 60  # 2 hours
 BUILD_POLL_INTERVAL_SECONDS = 30
 
-# VHAL binary name (matches Android.bp cc_binary in impl/vhal/)
-VHAL_SERVICE_BINARY = "android.hardware.automotive.vehicle@V3-emulator-service"
+# VHAL binary name produced by the GCP AOSP build
+VHAL_SERVICE_BINARY = "android.hardware.automotive.vehicle@V3-default-service"
 
-# Artifact files expected from the build
+# Stock Google AVD ships a different binary name (V1) and service name.
+# Deploy replaces the stock binary and updates the VINTF manifest so init
+# picks up our V3 binary under the stock service name.
+DEVICE_VHAL_BINARY_NAME = "android.hardware.automotive.vehicle@V1-emulator-service"
+DEVICE_VHAL_SERVICE_NAME_EMU = "vendor.vehicle-hal-emulator"
+
+# Artifact files expected from the GCP build
 ARTIFACT_FILES = [
     VHAL_SERVICE_BINARY,
     "DefaultProperties.json",
     "build-info.json",
 ]
 
-# Device paths for adb push
+# Device paths for adb push — maps local artifact name → device destination.
+# The VHAL binary is pushed under the stock binary name so init.rc picks it up
+# without needing to modify the init script.
 DEVICE_VHAL_SERVICE_DIR = "/vendor/bin/hw"
 DEVICE_CONFIG_DIR = "/vendor/etc/automotive/vhalconfig"
+DEVICE_VINTF_DIR = "/vendor/etc/vintf/manifest"
 
 DEVICE_PATHS = {
     VHAL_SERVICE_BINARY: (
-        f"{DEVICE_VHAL_SERVICE_DIR}/{VHAL_SERVICE_BINARY}"
+        f"{DEVICE_VHAL_SERVICE_DIR}/{DEVICE_VHAL_BINARY_NAME}"
     ),
     "DefaultProperties.json": (
         f"{DEVICE_CONFIG_DIR}/DefaultProperties.json"
     ),
 }
 
+# VINTF manifest to push — upgrades the stock V2 declaration to V3
+# so the framework accepts our V3 VHAL service.
+DEVICE_VINTF_MANIFEST_PATH = f"{DEVICE_VINTF_DIR}/vhal-emulator-service.xml"
+VINTF_MANIFEST_V3 = """\
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.automotive.vehicle</name>
+        <version>3</version>
+        <fqname>IVehicle/default</fqname>
+    </hal>
+</manifest>
+"""
+
 # SELinux context for binaries
 SELINUX_CONTEXT = "u:object_r:hal_vehicle_default_exec:s0"
 
-# Service names for stop/start
-VHAL_SERVICE_NAME = "vendor.vehicle-hal-default"
+# Service names for stop/start on stock emulator
+VHAL_SERVICE_NAME = "vendor.vehicle-hal-emulator"
 
 # Artifact download
 ARTIFACT_DOWNLOAD_RETRIES = 3
@@ -49,7 +71,7 @@ ADB_REBOOT_WAIT_SECONDS = 60
 # GCP Incremental Build
 GCP_REMOTE_VHAL_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/bridge"
 GCP_REMOTE_BUILD_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/vhal"
-GCP_PRODUCT_OUT_PATH = "~/aosp/out/target/product/emulator_car64_x86_64"
+GCP_PRODUCT_OUT_PATH = "~/aosp/out/target/product/emulator_car64_arm64"
 GCP_INCREMENTAL_BUILD_TIMEOUT = 20 * 60  # 20 minutes
 GCP_ARTIFACT_REMOTE_PATHS = {
     VHAL_SERVICE_BINARY: (

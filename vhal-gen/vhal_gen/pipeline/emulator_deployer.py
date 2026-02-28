@@ -82,6 +82,25 @@ class EmulatorDeployer:
 
             yield f"PASS {name}"
 
+        # Push updated VINTF manifest (V2 → V3) so framework accepts our binary
+        if config.VINTF_MANIFEST_V3 and config.DEVICE_VINTF_MANIFEST_PATH:
+            import tempfile
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".xml", delete=False,
+            ) as f:
+                f.write(config.VINTF_MANIFEST_V3)
+                manifest_tmp = f.name
+            yield f"Pushing VINTF manifest → {config.DEVICE_VINTF_MANIFEST_PATH}"
+            rc, _, stderr = self._shell.run(
+                ["adb", "push", manifest_tmp, config.DEVICE_VINTF_MANIFEST_PATH],
+                timeout=15,
+            )
+            if rc != 0:
+                yield f"FAIL VINTF manifest push: {stderr.strip()}"
+                all_ok = False
+            else:
+                yield "PASS VINTF manifest updated (V3)"
+
         if not all_ok:
             yield "WARNING: Some files failed to push — service may not start."
 
