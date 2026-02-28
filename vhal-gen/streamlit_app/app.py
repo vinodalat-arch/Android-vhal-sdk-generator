@@ -158,7 +158,6 @@ def _render_architecture_diagram(
 
   <div class="layer l-sdk {_hl(hl_sdk)}">
     <div class="layer-label">Common SDK used by All Nodes</div>
-    <div class="layer-sub">Read_App_Signal_Data / Write_App_Signal_Data / ComConfig / CanConfig</div>
     {_tag(hl_sdk, "SHARED", "tag-shared")}
   </div>
 
@@ -928,6 +927,24 @@ with tab_ivi:
             "Run Full Deploy Test", type="primary", use_container_width=True,
         )
 
+        deploy_tested = st.session_state.get("deploy_tested", False)
+        col_commit, col_push = st.columns(2)
+        with col_commit:
+            commit_vhal_clicked = st.button(
+                "Commit VHAL Source",
+                use_container_width=True,
+                disabled=not deploy_tested,
+            )
+        with col_push:
+            vhal_committed = st.session_state.get("vhal_committed", False)
+            push_vhal_clicked = st.button(
+                "Push VHAL Source",
+                use_container_width=True,
+                disabled=not vhal_committed,
+            )
+        if not deploy_tested:
+            st.caption("Run a successful deploy test first to enable commit and push.")
+
     if deploy_full_clicked:
         model_dir_val = st.session_state.get("model_dir", "")
         vhal_path_val = st.session_state.get("vhal_path", "")
@@ -979,6 +996,57 @@ with tab_ivi:
                 else:
                     st.session_state["deploy_tested"] = True
                     status.update(label="Deploy test passed!", state="complete")
+
+    if commit_vhal_clicked:
+        vhal_path_val = st.session_state.get("vhal_path", "")
+        if not vhal_path_val or not Path(vhal_path_val).is_dir():
+            st.error("VHAL source not found. Pull VHAL source first (Section 2).")
+        else:
+            shell = ShellRunner()
+            vhal_p = Path(vhal_path_val)
+            with st.status("Committing VHAL source...", expanded=True) as status:
+                # git add generated files
+                rc, _, stderr = shell.run(
+                    ["git", "-C", str(vhal_p), "add", "impl/bridge/", "impl/vhal/"],
+                    timeout=30,
+                )
+                if rc != 0:
+                    st.error(f"git add failed: {stderr.strip()}")
+                    status.update(label="Commit failed", state="error")
+                else:
+                    st.write(":white_check_mark: Files staged")
+                    # git commit
+                    rc2, out2, stderr2 = shell.run(
+                        ["git", "-C", str(vhal_p), "commit",
+                         "-m", "vhal-gen: update generated VHAL bridge + daemon code"],
+                        timeout=30,
+                    )
+                    if rc2 != 0:
+                        st.error(f"git commit failed: {stderr2.strip()}")
+                        status.update(label="Commit failed", state="error")
+                    else:
+                        st.write(f":white_check_mark: {out2.strip()}")
+                        st.session_state["vhal_committed"] = True
+                        status.update(label="VHAL source committed!", state="complete")
+
+    if push_vhal_clicked:
+        vhal_path_val = st.session_state.get("vhal_path", "")
+        if not vhal_path_val or not Path(vhal_path_val).is_dir():
+            st.error("VHAL source not found.")
+        else:
+            shell = ShellRunner()
+            vhal_p = Path(vhal_path_val)
+            with st.status("Pushing VHAL source to remote...", expanded=True) as status:
+                rc, out, stderr = shell.run(
+                    ["git", "-C", str(vhal_p), "push"],
+                    timeout=120,
+                )
+                if rc != 0:
+                    st.error(f"git push failed: {stderr.strip()}")
+                    status.update(label="Push failed", state="error")
+                else:
+                    st.write(f":white_check_mark: {out.strip() or 'Pushed to remote'}")
+                    status.update(label="VHAL source pushed!", state="complete")
 
     # -- Tab 2: Incremental Build --
     with tab_incr:

@@ -116,6 +116,32 @@ class GcpBuilder:
             return
         yield f"PASS Instance '{self._instance}' stopped"
 
+    # -- standalone push (no build) -------------------------------------
+
+    def push_source(self, vhal_dir: Path) -> Iterator[str]:
+        """Push generated VHAL source to the GCP instance (no build).
+
+        Runs gcloud/instance checks, then syncs bridge/ and vhal/ dirs.
+        """
+        yield "=== Push VHAL Source ==="
+
+        for line in self.check_gcloud():
+            yield line
+            if line.startswith("ERROR:"):
+                return
+
+        for line in self.check_instance():
+            yield line
+            if line.startswith(("ERROR:", "FAIL")):
+                return
+
+        for line in self._sync_code(vhal_dir):
+            yield line
+            if line.startswith("ERROR:"):
+                return
+
+        yield "PASS VHAL source pushed to instance"
+
     # -- internal pipeline steps ----------------------------------------
 
     def _sync_code(self, vhal_dir: Path) -> Iterator[str]:
