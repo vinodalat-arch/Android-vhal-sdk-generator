@@ -1155,15 +1155,14 @@ with tab_ivi:
             else "Generate code first (Step 3) before skipping.",
         )
 
-        gcp_ready = st.session_state.get("gcp_ready", False)
         deploy_incr_clicked = st.button(
             "Build & Deploy VHAL",
             type="primary",
             use_container_width=True,
-            disabled=not gcp_ready,
+            disabled=not gcp_instance_name,
         )
-        if not gcp_ready:
-            st.caption("Click 'Check Status' above to verify the GCP instance is running.")
+        if not gcp_instance_name:
+            st.caption("Enter a GCP instance name above to enable this button.")
 
     if deploy_incr_clicked:
         model_dir_val = st.session_state.get("model_dir", "")
