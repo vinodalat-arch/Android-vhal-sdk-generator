@@ -26,8 +26,6 @@ def _render_architecture_diagram(
     hl_daemon: bool = False,
     hl_vhal_service: bool = False,
     hl_sdk: bool = False,
-    hl_can: bool = False,
-    flow_text: str = "",
 ) -> str:
     """Return HTML for the Android Automotive layered architecture diagram.
 
@@ -92,7 +90,7 @@ def _render_architecture_diagram(
   .l-vhal      {{ background: #1e2a1e; border-color: #3d6b3d; }}
   .l-bridge    {{ background: #2a1e1e; border-color: #6b3d3d; }}
   .l-sdk       {{ background: #2a2a1e; border-color: #6b6b3d; }}
-  .l-can       {{ background: #1e1e2a; border-color: #3d3d6b; }}
+  .l-vsm       {{ background: #1e1e2a; border-color: #3d3d6b; }}
   .highlighted {{
     border-color: #ff6b35 !important;
     background: #3a2210 !important;
@@ -101,7 +99,7 @@ def _render_architecture_diagram(
   .highlighted .layer-label {{ color: #ff9966; }}
   .tag-generated {{ background: #ff6b35; color: #fff; }}
   .tag-patched   {{ background: #e6b800; color: #1a1a1a; }}
-  .tag-copied    {{ background: #4da6ff; color: #fff; }}
+  .tag-shared    {{ background: #7c4dff; color: #fff; }}
   .vhal-inner {{
     display: flex;
     gap: 8px;
@@ -116,16 +114,12 @@ def _render_architecture_diagram(
     transition: all 0.3s ease;
   }}
   .component.highlighted {{ border-style: solid; }}
-  .flow-banner {{
+  .eth-connector {{
     text-align: center;
-    padding: 8px;
-    margin-top: 10px;
-    font-size: 12px;
-    color: #ff9966;
-    background: #2a1a10;
-    border-radius: 6px;
-    border: 1px solid #ff6b3544;
-    min-height: 20px;
+    color: #6b9bd2;
+    font-size: 11px;
+    margin: 6px 0 2px 0;
+    letter-spacing: 1px;
   }}
 </style>
 
@@ -168,19 +162,16 @@ def _render_architecture_diagram(
   </div>
 
   <div class="layer l-sdk {_hl(hl_sdk)}">
-    <div class="layer-label">Vehicle Body SDK</div>
+    <div class="layer-label">Common SDK used by All Nodes</div>
     <div class="layer-sub">Read_App_Signal_Data / Write_App_Signal_Data / ComConfig / CanConfig</div>
-    {_tag(hl_sdk, "COPIED", "tag-copied")}
+    {_tag(hl_sdk, "SHARED", "tag-shared")}
   </div>
 
-  <div class="layer l-can {_hl(hl_can)}">
-    <div class="layer-label">CAN Bus / Vehicle Network</div>
-    <div class="layer-sub">Physical ECUs, Sensors, Actuators</div>
-  </div>
+  <div class="eth-connector">&#x25BC; Ethernet (VLAN 11) &#x25BC;</div>
 
-  <div class="flow-banner">
-    {flow_text if flow_text else
-     "Orange-highlighted layers are modified by vhal-gen when you click Generate"}
+  <div class="layer l-vsm">
+    <div class="layer-label">Vehicle State Manager</div>
+    <div class="layer-sub">Hardware gateway connecting IVI over Ethernet to vehicle ECU network</div>
   </div>
 
 </div>
@@ -526,32 +517,6 @@ with tab_ivi:
     # ─────────────────────────────────────────────
     st.header("3. Generate IVI Package")
 
-    # ── Architecture Diagram ──
-    code_gen = st.session_state.get("code_generated", False)
-    deploy_done = st.session_state.get("deploy_tested", False)
-    has_sdk = bool(st.session_state.get("sdk_source_dir", ""))
-
-    if deploy_done:
-        _flow = ("Generated, built, and deployed to emulator. "
-                 "VHAL service is running with BridgeVehicleHardware + FlyncDaemon.")
-    elif code_gen:
-        _flow = ("Code generated: BridgeVehicleHardware.cpp, FlyncDaemon.cpp, "
-                 "VehicleService.cpp patched"
-                 + (", SDK files copied" if has_sdk else "")
-                 + ". Ready for build & deploy.")
-    else:
-        _flow = ("Click Generate to produce the highlighted layers. "
-                 "vhal-gen creates the Bridge + Daemon, patches VehicleService, "
-                 "and copies SDK files into the VHAL tree.")
-
-    st.html(_render_architecture_diagram(
-        hl_bridge=True,
-        hl_daemon=True,
-        hl_vhal_service=True,
-        hl_sdk=has_sdk,
-        flow_text=_flow,
-    ))
-
     if not st.session_state.get("model_loaded"):
         st.warning("Load a model first to generate code.")
     elif not st.session_state.get("vhal_pulled"):
@@ -598,6 +563,15 @@ with tab_ivi:
         if st.session_state.get("code_generated") and st.session_state.get("bridge_dir"):
             generated = st.session_state["generated_files"]
             bridge_dir = Path(st.session_state["bridge_dir"])
+
+            # ── Architecture Diagram (shown after generation) ──
+            has_sdk = bool(st.session_state.get("sdk_source_dir", ""))
+            st.html(_render_architecture_diagram(
+                hl_bridge=True,
+                hl_daemon=True,
+                hl_vhal_service=True,
+                hl_sdk=has_sdk,
+            ))
 
             # Download ZIP of bridge directory
             zip_buf = io.BytesIO()
