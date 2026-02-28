@@ -200,6 +200,50 @@ mma         # Build current module and dependencies
 
 ---
 
+## Compile Check — Full Daemon Codebase Validation (Mandatory)
+
+Before pushing to AOSP, `vhal-gen` provides a local compile check using
+`clang++ -fsyntax-only` with A14-compatible stub headers. **This MUST compile the
+entire daemon codebase** — both generated and SDK reference code.
+
+### Files Covered (8 total)
+
+| File | Category | Description |
+|------|----------|-------------|
+| `BridgeVehicleHardware.cpp` | Generated | IVehicleHardware bridge impl |
+| `FlyncDaemon.cpp` | Generated | Signal pack/unpack + transport |
+| `Read_App_Signal_Data.cpp` | SDK ref | App-layer signal read API |
+| `Write_App_Signal_Data.cpp` | SDK ref | App-layer signal write API |
+| `iodata.cc` | SDK ref | CAN I/O data serialization |
+| `ComConfig.cpp` | SDK ref | COM layer configuration |
+| `CanConfig.cpp` | SDK ref | CAN configuration |
+| `com_utils.cpp` | SDK ref | COM utility functions |
+
+### Stub Headers
+
+Minimal stubs in `vhal_gen/stubs/` shadow missing AOSP headers:
+
+| Stub | Shadows |
+|------|---------|
+| `VehicleHalTypes.h` | 100+ AIDL-generated headers (StatusCode, VehiclePropValue, etc.) |
+| `IVehicleHardware.h` | Wrapper that includes VehicleHalTypes.h |
+| `android-base/logging.h` | Android logging (LOG/ALOGI/ALOGE as no-ops) |
+| `json/json.h` | jsoncpp (Json::Value, Json::CharReaderBuilder) |
+
+All stubs match the exact Android 14 (`android-14.0.0_r1`) AIDL interface definitions.
+
+### Usage
+
+```bash
+# CLI
+vhal-gen compile-check --vhal-dir <vhal-tree> --sdk-dir <sdk-src>
+
+# Streamlit UI
+# "Compile Check (Stubs)" button in Section 4
+```
+
+---
+
 ## AOSP Source Locations (Android 14)
 
 ```

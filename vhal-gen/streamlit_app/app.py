@@ -488,9 +488,47 @@ with tab_ivi:
             st.warning("Pull VHAL source and generate code first.")
         else:
             builder = StubBuilder()
+            # Resolve SDK source dir with multiple fallbacks:
+            # 1. Session state sdk_source_dir (set by sidebar or Section 2)
+            # 2. Infer from project_base session state
+            # 3. Auto-detect from vhal_path (walk up to find "output", go to parent)
+            sdk_path = None
+            vhal_root = Path(str(vhal_path))
+
+            # Check if SDK already copied into bridge/sdk/ (no fallback needed)
+            bridge_sdk = vhal_root / "impl" / "bridge" / "sdk"
+            if not bridge_sdk.is_dir():
+                # Try session state first
+                sdk_dir_str = st.session_state.get("sdk_source_dir", "")
+                if sdk_dir_str and Path(sdk_dir_str).is_dir():
+                    sdk_path = Path(sdk_dir_str)
+                else:
+                    # Try project_base
+                    base_str = st.session_state.get("project_base", "")
+                    if base_str:
+                        candidate = Path(base_str) / "performance-stack-Body-lighting-Draft" / "src"
+                        if candidate.is_dir():
+                            sdk_path = candidate
+                    # Auto-detect from vhal_path: walk up to find "output" dir
+                    if sdk_path is None:
+                        parts = Path(str(vhal_path)).parts
+                        if "output" in parts:
+                            idx = parts.index("output")
+                            inferred_base = Path(*parts[:idx])
+                            candidate = inferred_base / "performance-stack-Body-lighting-Draft" / "src"
+                            if candidate.is_dir():
+                                sdk_path = candidate
+                    # Fallback: look near the tool's own project root
+                    if sdk_path is None:
+                        tool_root = Path(__file__).resolve().parent.parent.parent
+                        candidate = tool_root / "performance-stack-Body-lighting-Draft" / "src"
+                        if candidate.is_dir():
+                            sdk_path = candidate
+                    if sdk_path:
+                        st.info(f"Auto-detected SDK: {sdk_path}")
             with st.status("Running compile check (stubs)...", expanded=True) as status:
                 all_lines: list[str] = []
-                for line in builder.compile_check(Path(vhal_path)):
+                for line in builder.compile_check(vhal_root, sdk_dir=sdk_path):
                     all_lines.append(line)
                     if line.startswith("PASS"):
                         st.write(f":white_check_mark: {line}")

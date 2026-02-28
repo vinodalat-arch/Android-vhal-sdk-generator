@@ -147,12 +147,20 @@ def classify(model_dir: str):
     type=click.Path(exists=True, file_okay=False),
     help="Path to pulled VHAL source tree with generated bridge code.",
 )
-def compile_check(vhal_dir: str):
+@click.option(
+    "--sdk-dir",
+    "sdk_dir",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Vehicle Body SDK source directory (fallback if SDK not copied into bridge/).",
+)
+def compile_check(vhal_dir: str, sdk_dir: str | None):
     """Run clang++ syntax check on generated bridge code using stub headers."""
     vhal_root = Path(vhal_dir)
+    sdk_path = Path(sdk_dir) if sdk_dir else None
     builder = StubBuilder()
     has_fail = False
-    for line in builder.compile_check(vhal_root):
+    for line in builder.compile_check(vhal_root, sdk_dir=sdk_path):
         if line.startswith("PASS"):
             click.echo(click.style(f"  {line}", fg="green"))
         elif line.startswith("FAIL"):

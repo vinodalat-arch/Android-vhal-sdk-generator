@@ -214,6 +214,36 @@ vendor_id = 0x20000000 (VENDOR) | 0x01000000 (GLOBAL) | type_bits | counter
 - Integer signals → `VehiclePropertyType.INT32` (0x00400000)
 - Apps reference vendor IDs via constants from `VendorProperties.h`
 
+### 11. Compile Check — Full Daemon Codebase Validation (Mandatory)
+Before pushing generated code to a full AOSP build environment, `vhal-gen` provides a
+local compile check using `clang++ -fsyntax-only` with minimal stub headers. **This check
+MUST cover the entire daemon codebase** — not just the generated bridge files, but all
+SDK reference code that the daemon depends on.
+
+**Files that MUST be compiled (8 total):**
+
+| # | File | Category |
+|---|------|----------|
+| 1 | `BridgeVehicleHardware.cpp` | Generated bridge |
+| 2 | `FlyncDaemon.cpp` | Generated bridge |
+| 3 | `Read_App_Signal_Data.cpp` | SDK reference (app/swc) |
+| 4 | `Write_App_Signal_Data.cpp` | SDK reference (app/swc) |
+| 5 | `iodata.cc` | SDK reference (can_io) |
+| 6 | `ComConfig.cpp` | SDK reference (com) |
+| 7 | `CanConfig.cpp` | SDK reference (com) |
+| 8 | `com_utils.cpp` | SDK reference (com) |
+
+**Stub headers** (in `vhal_gen/stubs/`) shadow real AOSP headers that only exist inside a
+full build tree:
+- `VehicleHalTypes.h` — all A14 AIDL types (StatusCode, VehiclePropValue, etc.)
+- `android-base/logging.h` — no-op LOG macros
+- `json/json.h` — minimal jsoncpp API surface
+
+All stubs are derived from the exact Android 14 (`android-14.0.0_r1`) AIDL spec.
+
+**macOS compatibility:** SDK's `iodata.cc` uses Linux `be32toh`/`htobe32`; on macOS these
+are mapped to `OSSwapBigToHostInt32`/`OSSwapHostToBigInt32` via `-D` compile flags.
+
 ## How to Use
 
 ### CLI
@@ -221,12 +251,15 @@ vendor_id = 0x20000000 (VENDOR) | 0x01000000 (GLOBAL) | type_bits | counter
 vhal-gen generate ./flync-model-dev-2 -o ./output --transport mock
 vhal-gen inspect ./flync-model-dev-2
 vhal-gen classify ./flync-model-dev-2
+vhal-gen compile-check --vhal-dir <path-to-vhal-tree> --sdk-dir <path-to-sdk-src>
 ```
 
 ### Streamlit UI
 ```bash
 streamlit run streamlit_app/app.py
 ```
+The UI provides a **"Compile Check (Stubs)"** button in Section 4 that runs the full
+8-file compile check and streams per-file PASS/FAIL results.
 
 ### Integration
 1. Copy `output/vhal/` contents into AOSP VHAL source directory

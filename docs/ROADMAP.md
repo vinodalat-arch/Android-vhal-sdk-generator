@@ -7,9 +7,12 @@
 - Code generation: BridgeVehicleHardware, FlyncDaemon, transports
 - Single VHAL project build (daemon built alongside bridge)
 - Mock transport for emulator testing
-- CLI tool (generate, inspect, classify)
+- CLI tool (generate, inspect, classify, compile-check)
 - Streamlit web UI
 - Unit and integration tests
+- **Compile check (stubs)** — local `clang++ -fsyntax-only` validation of the entire
+  daemon codebase (generated bridge + SDK reference code, 8 files) using A14-compatible
+  stub headers, available from both CLI and Web UI
 
 ## Future (v1.1+)
 
