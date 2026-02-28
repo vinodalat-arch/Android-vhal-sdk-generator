@@ -252,14 +252,29 @@ vhal-gen generate ./flync-model-dev-2 -o ./output --transport mock
 vhal-gen inspect ./flync-model-dev-2
 vhal-gen classify ./flync-model-dev-2
 vhal-gen compile-check --vhal-dir <path-to-vhal-tree> --sdk-dir <path-to-sdk-src>
+
+# Full deploy-test pipeline (GitHub Actions build ~2 hours)
+vhal-gen deploy-test ./flync-model-dev-2 --vhal-dir <path> --aosp-tag android-14.0.0_r75
+
+# Incremental build on a GCP instance (~5-15 min)
+vhal-gen deploy-test ./flync-model-dev-2 --vhal-dir <path> \
+  --incremental --gcp-instance <instance-name> --gcp-zone us-central1-a
+
+# Check GCP instance readiness
+vhal-gen gcp-status --instance <instance-name> --zone us-central1-a
 ```
 
 ### Streamlit UI
 ```bash
 streamlit run streamlit_app/app.py
 ```
-The UI provides a **"Compile Check (Stubs)"** button in Section 4 that runs the full
-8-file compile check and streams per-file PASS/FAIL results.
+The UI provides:
+- **"Compile Check (Stubs)"** button in Section 4a — runs the full 8-file compile check
+  and streams per-file PASS/FAIL results
+- **GCP Instance Status card** in Section 4b — check instance readiness before building
+- **Two build tabs** in Section 4b — "Full Build (GitHub Actions)" for complete AOSP
+  builds, or "Incremental Build (GCP Instance)" for fast iterative development on a
+  pre-existing instance with a completed AOSP build
 
 ### Integration
 1. Copy `output/vhal/` contents into AOSP VHAL source directory

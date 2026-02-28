@@ -7,12 +7,17 @@
 - Code generation: BridgeVehicleHardware, FlyncDaemon, transports
 - Single VHAL project build (daemon built alongside bridge)
 - Mock transport for emulator testing
-- CLI tool (generate, inspect, classify, compile-check)
+- CLI tool (generate, inspect, classify, compile-check, deploy-test, gcp-status)
 - Streamlit web UI
 - Unit and integration tests
 - **Compile check (stubs)** — local `clang++ -fsyntax-only` validation of the entire
   daemon codebase (generated bridge + SDK reference code, 8 files) using A14-compatible
   stub headers, available from both CLI and Web UI
+- **Deploy-test pipeline** — full GCP build via GitHub Actions (~2 hours), artifact
+  download, emulator deployment, and property verification — all from CLI or Web UI
+- **Incremental GCP build** — sync code to a pre-existing GCP Compute Engine instance,
+  run `mma` incremental build (~5–15 min), and pull artifacts back. GCP instance status
+  check available via `gcp-status` CLI command and Streamlit UI status card
 
 ## Future (v1.1+)
 
@@ -25,17 +30,6 @@
 - Container with AOSP build environment
 - Build VHAL module without full AOSP tree on host
 - CI/CD integration for automated builds
-
-### Cloud Build Service
-- Upload YAML model → get built VHAL binaries
-- Pre-built AOSP build environment in cloud
-- API for programmatic access
-
-### Full Emulator Validation Pipeline
-- Auto-launch Android emulator with generated VHAL
-- Run test APK automatically
-- Report pass/fail for all properties
-- Integration with CI/CD
 
 ### CI/CD for Auto-Regeneration
 - Watch YAML model repo for changes

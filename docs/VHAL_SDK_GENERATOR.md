@@ -435,6 +435,40 @@ adb shell start vendor.vehicle.hal.default
 adb logcat -s BridgeVHAL:* FlyncDaemon:*
 ```
 
+#### Alternative: Automated Deploy-Test Pipeline
+
+The `deploy-test` command automates Steps 5–6 end-to-end:
+
+```bash
+# Full build via GitHub Actions (~2 hours)
+vhal-gen deploy-test ./flync-model-dev-2 \
+  --vhal-dir ./output/aosp-vhal/android-14.0.0_r75/automotive/vehicle/aidl \
+  --aosp-tag android-14.0.0_r75 --git-ref main
+```
+
+For iterative development on a GCP instance that already has a completed AOSP
+build, use the incremental mode (~5–15 min):
+
+```bash
+# Check instance status first
+vhal-gen gcp-status --instance aosp-builder-1 --zone us-central1-a
+
+# Incremental build: sync code → mma → pull artifacts → deploy → verify
+vhal-gen deploy-test ./flync-model-dev-2 \
+  --vhal-dir ./output/aosp-vhal/android-14.0.0_r75/automotive/vehicle/aidl \
+  --incremental --gcp-instance aosp-builder-1 --gcp-zone us-central1-a
+```
+
+The incremental pipeline:
+1. Verifies gcloud CLI and instance status
+2. SCPs generated bridge code to `~/aosp/.../impl/bridge/` on the instance
+3. Runs `mma -j$(nproc)` via SSH for an incremental build
+4. Pulls 3 artifacts (VHAL service, daemon, config JSON) back locally
+5. Deploys to emulator and verifies properties
+
+The Streamlit UI (Section 4b) also provides both modes with a GCP Instance
+Status card that shows whether the instance is ready for incremental builds.
+
 ---
 
 ## 7. YAML to VHAL Property Mapping
