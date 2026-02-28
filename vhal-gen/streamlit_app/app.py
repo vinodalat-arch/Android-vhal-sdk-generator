@@ -895,7 +895,7 @@ with tab_ivi:
         with col_inst:
             gcp_instance_name = st.text_input(
                 "Instance Name", key="gcp_instance_name",
-                placeholder="aosp-builder",
+                value="aosp-builder",
                 help="Name of the GCP Compute Engine VM with an AOSP build environment.",
             )
         with col_zone:
@@ -904,8 +904,8 @@ with tab_ivi:
             )
         with col_proj:
             gcp_project = st.text_input(
-                "Project (optional)", key="gcp_project",
-                placeholder="my-gcp-project",
+                "Project", key="gcp_project",
+                value="vhal-builder",
             )
 
         col_check, col_start, col_stop = st.columns(3)
