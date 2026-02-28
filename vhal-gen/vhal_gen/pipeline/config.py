@@ -24,7 +24,6 @@ ARTIFACT_FILES = [
     VHAL_SERVICE_BINARY,
     "DefaultProperties.json",
     "flync-daemon",
-    "libbase.so",
     "DefaultVehicleHal.so",
     "build-info.json",
 ]
@@ -41,7 +40,6 @@ DEVICE_PATHS = {
         f"{DEVICE_VHAL_SERVICE_DIR}/{DEVICE_VHAL_BINARY_NAME}"
     ),
     "flync-daemon": "/vendor/bin/flync-daemon",
-    "libbase.so": "/vendor/lib64/libbase.so",
     "DefaultVehicleHal.so": "/vendor/lib64/DefaultVehicleHal.so",
 }
 
@@ -81,6 +79,5 @@ GCP_ARTIFACT_REMOTE_PATHS = {
         f"vendor/bin/hw/{VHAL_SERVICE_BINARY}"
     ),
     "flync-daemon": "vendor/bin/flync-daemon",
-    "libbase.so": "vendor/lib64/libbase.so",
     "DefaultVehicleHal.so": "vendor/lib64/DefaultVehicleHal.so",
 }

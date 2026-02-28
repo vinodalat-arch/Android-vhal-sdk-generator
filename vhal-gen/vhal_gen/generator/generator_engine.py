@@ -215,7 +215,17 @@ class GeneratorEngine:
                 block,
             )
 
-        # 4. Add required for DefaultProperties.json and flync-daemon
+        # 4. Move libbase from shared_libs to static_libs (carries fmt symbols,
+        # avoids trunk/A14 libbase.so ABI mismatch at deploy time)
+        if '"libbase"' not in block:
+            # Add libbase to static_libs
+            block = re.sub(
+                r'(static_libs:\s*\[)',
+                r'\1\n        "libbase",',
+                block,
+            )
+
+        # 5. Add required for DefaultProperties.json and flync-daemon
         if '"flync-DefaultProperties.json"' not in block:
             block = re.sub(
                 r'(shared_libs:\s*\[[^\]]*\],)',
