@@ -28,7 +28,7 @@ DEVICE_PATHS = {
     ),
     "flync-daemon": f"{DEVICE_DAEMON_DIR}/flync-daemon",
     "flync-DefaultProperties.json": (
-        f"{DEVICE_CONFIG_DIR}/flync-DefaultProperties.json"
+        f"{DEVICE_CONFIG_DIR}/DefaultProperties.json"
     ),
 }
 
@@ -56,6 +56,6 @@ GCP_ARTIFACT_REMOTE_PATHS = {
     ),
     "flync-daemon": "vendor/bin/flync-daemon",
     "flync-DefaultProperties.json": (
-        "vendor/etc/automotive/vhal/flync-DefaultProperties.json"
+        "vendor/etc/automotive/vhal/DefaultProperties.json"
     ),
 }

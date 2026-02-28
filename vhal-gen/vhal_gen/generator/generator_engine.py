@@ -215,11 +215,11 @@ class GeneratorEngine:
                 block,
             )
 
-        # 4. Add required for DefaultProperties.json if not already present
+        # 4. Add required for DefaultProperties.json and flync-daemon
         if '"flync-DefaultProperties.json"' not in block:
             block = re.sub(
                 r'(shared_libs:\s*\[[^\]]*\],)',
-                r'\1\n    required: ["flync-DefaultProperties.json"],',
+                r'\1\n    required: ["flync-DefaultProperties.json", "flync-daemon"],',
                 block,
                 flags=re.DOTALL,
             )

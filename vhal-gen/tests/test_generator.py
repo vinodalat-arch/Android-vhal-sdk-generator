@@ -248,8 +248,9 @@ def test_vhal_android_bp_modified():
         # libjsoncpp should be added to cc_binary shared_libs
         assert '"libjsoncpp"' in content
 
-        # required for DefaultProperties.json
+        # required for DefaultProperties.json and flync-daemon
         assert '"flync-DefaultProperties.json"' in content
+        assert '"flync-daemon"' in content
 
         # Original binary name should be preserved
         assert "android.hardware.automotive.vehicle@V1-default-service" in content

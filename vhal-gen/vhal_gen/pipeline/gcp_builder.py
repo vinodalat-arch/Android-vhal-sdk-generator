@@ -119,11 +119,24 @@ class GcpBuilder:
     # -- internal pipeline steps ----------------------------------------
 
     def _sync_code(self, vhal_dir: Path) -> Iterator[str]:
-        """SCP generated code to the instance."""
-        yield f"Syncing code from {vhal_dir} ..."
+        """SCP generated bridge code and patched vhal files to the instance.
+
+        The generator produces files in two locations:
+        - impl/bridge/ — generated templates + SDK files
+        - impl/vhal/  — patched VehicleService.cpp and Android.bp
+
+        Both must be uploaded to the matching remote paths.
+        """
+        # Upload impl/bridge/ (generated templates + SDK files)
+        bridge_local = vhal_dir / "impl" / "bridge"
+        if not bridge_local.is_dir():
+            yield f"ERROR: Bridge directory not found at {bridge_local}"
+            return
+
+        yield f"Syncing bridge code from {bridge_local} ..."
         cmd = self._gcloud_base() + [
             "compute", "scp", "--recurse",
-            f"{vhal_dir}/",
+            f"{bridge_local}/",
             f"{self._instance}:{config.GCP_REMOTE_VHAL_PATH}/",
             "--zone", self._zone, "--quiet",
         ]
@@ -131,9 +144,30 @@ class GcpBuilder:
             cmd, timeout=config.GCP_INCREMENTAL_BUILD_TIMEOUT,
         )
         if rc != 0:
-            yield f"ERROR: SCP upload failed — {stderr.strip()}"
+            yield f"ERROR: SCP upload of bridge/ failed — {stderr.strip()}"
             return
-        yield "PASS Code synced to instance"
+        yield "PASS Bridge code synced"
+
+        # Upload impl/vhal/ (patched VehicleService.cpp + Android.bp)
+        vhal_local = vhal_dir / "impl" / "vhal"
+        if not vhal_local.is_dir():
+            yield f"ERROR: VHAL directory not found at {vhal_local}"
+            return
+
+        yield f"Syncing patched vhal files from {vhal_local} ..."
+        cmd = self._gcloud_base() + [
+            "compute", "scp", "--recurse",
+            f"{vhal_local}/",
+            f"{self._instance}:{config.GCP_REMOTE_BUILD_PATH}/",
+            "--zone", self._zone, "--quiet",
+        ]
+        rc, _, stderr = self._shell.run(
+            cmd, timeout=config.GCP_INCREMENTAL_BUILD_TIMEOUT,
+        )
+        if rc != 0:
+            yield f"ERROR: SCP upload of vhal/ failed — {stderr.strip()}"
+            return
+        yield "PASS Patched vhal files synced"
 
     def _run_build(self) -> Iterator[str]:
         """SSH into the instance and run incremental mma."""

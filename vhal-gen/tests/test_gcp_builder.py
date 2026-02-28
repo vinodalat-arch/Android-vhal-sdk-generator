@@ -163,21 +163,47 @@ class TestInstanceControl:
 
 class TestSyncCode:
 
+    def _make_vhal_dir(self, tmp_path: Path) -> Path:
+        """Create a vhal_dir with impl/bridge/ and impl/vhal/ subdirs."""
+        vhal_dir = tmp_path / "vhal"
+        (vhal_dir / "impl" / "bridge").mkdir(parents=True)
+        (vhal_dir / "impl" / "vhal").mkdir(parents=True)
+        return vhal_dir
+
     def test_sync_success(self, tmp_path: Path):
         shell = FakeShellRunner()
         shell.set_response("compute scp", 0)
         builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        vhal_dir = self._make_vhal_dir(tmp_path)
 
-        lines = _collect(builder._sync_code(tmp_path))
-        assert any("PASS" in l and "synced" in l.lower() for l in lines)
+        lines = _collect(builder._sync_code(vhal_dir))
+        pass_lines = [l for l in lines if l.startswith("PASS")]
+        # Should have 2 PASS lines: bridge synced + vhal synced
+        assert len(pass_lines) == 2
+        assert any("Bridge" in l for l in pass_lines)
+        assert any("vhal" in l.lower() for l in pass_lines)
+        # Should have made 2 SCP calls
+        scp_calls = [c for c in shell.calls if "scp" in " ".join(c)]
+        assert len(scp_calls) == 2
 
-    def test_sync_ssh_failure(self, tmp_path: Path):
+    def test_sync_bridge_scp_failure(self, tmp_path: Path):
         shell = FakeShellRunner()
         shell.set_response("compute scp", 1, stderr="ssh connection refused")
         builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        vhal_dir = self._make_vhal_dir(tmp_path)
 
+        lines = _collect(builder._sync_code(vhal_dir))
+        assert any("ERROR:" in l and "bridge" in l.lower() for l in lines)
+        # Should abort after first SCP failure, no second SCP
+        scp_calls = [c for c in shell.calls if "scp" in " ".join(c)]
+        assert len(scp_calls) == 1
+
+    def test_sync_missing_bridge_dir(self, tmp_path: Path):
+        shell = FakeShellRunner()
+        builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        # No impl/bridge/ created
         lines = _collect(builder._sync_code(tmp_path))
-        assert any("ERROR:" in l for l in lines)
+        assert any("ERROR:" in l and "Bridge directory" in l for l in lines)
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +251,8 @@ class TestBuildIncremental:
         builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
 
         vhal_dir = tmp_path / "vhal"
-        vhal_dir.mkdir()
+        (vhal_dir / "impl" / "bridge").mkdir(parents=True)
+        (vhal_dir / "impl" / "vhal").mkdir(parents=True)
         artifact_dir = tmp_path / "artifacts"
 
         lines = _collect(builder.build_incremental(
