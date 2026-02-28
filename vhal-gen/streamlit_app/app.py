@@ -1,4 +1,4 @@
-"""KPIT Vehicle SDK Generator — single-page Streamlit UI."""
+"""KPIT Vehicle Platform Builder — single-page Streamlit UI."""
 
 import io
 import sys
@@ -26,11 +26,14 @@ def _render_architecture_diagram(
     hl_daemon: bool = False,
     hl_vhal_service: bool = False,
     hl_sdk: bool = False,
+    blink: bool = False,
 ) -> str:
     """Return HTML for the Android Automotive layered architecture diagram.
 
     Highlighted layers get an orange glow to show what vhal-gen modifies.
     """
+    blink_cls = " blink" if blink else ""
+
     def _hl(flag: bool) -> str:
         return "highlighted" if flag else ""
 
@@ -92,13 +95,20 @@ def _render_architecture_diagram(
   .l-sdk       {{ background: #2a2a1e; border-color: #6b6b3d; }}
   .l-vsm       {{ background: #1a2a2a; border-color: #2d8a7a; }}
   .highlighted {{
-    border-color: #ff6b35 !important;
-    background: #3a2210 !important;
-    box-shadow: 0 0 15px rgba(255, 107, 53, 0.3);
+    border-color: #61a229 !important;
+    background: #1e3310 !important;
+    box-shadow: 0 0 15px rgba(97, 162, 41, 0.3);
   }}
-  .highlighted .layer-label {{ color: #ff9966; }}
-  .tag-generated {{ background: #ff6b35; color: #fff; }}
-  .tag-patched   {{ background: #e6b800; color: #1a1a1a; }}
+  .highlighted .layer-label {{ color: #7bc043; }}
+  @keyframes blink-glow {{
+    0%, 100% {{ opacity: 1; box-shadow: 0 0 15px rgba(97, 162, 41, 0.3); }}
+    50% {{ opacity: 0.5; box-shadow: 0 0 25px rgba(97, 162, 41, 0.6); }}
+  }}
+  .blink {{
+    animation: blink-glow 0.8s ease-in-out 6;
+  }}
+  .tag-generated {{ background: #61a229; color: #fff; }}
+  .tag-patched   {{ background: #4e8221; color: #fff; }}
   .tag-shared    {{ background: #7c4dff; color: #fff; }}
   .vhal-inner {{
     display: flex;
@@ -140,7 +150,7 @@ def _render_architecture_diagram(
     <div class="layer-sub">VehiclePropertyService (system_server)</div>
   </div>
 
-  <div class="layer l-vhal {_hl(hl_vhal_service)}" style="padding-bottom:14px;">
+  <div class="layer l-vhal {_hl(hl_vhal_service)}{blink_cls if hl_vhal_service else ''}" style="padding-bottom:14px;">
     <div class="layer-label">VHAL Service</div>
     {_tag(hl_vhal_service, "PATCHED", "tag-patched")}
     <div class="vhal-inner">
@@ -156,7 +166,7 @@ def _render_architecture_diagram(
     </div>
   </div>
 
-  <div class="layer l-sdk {_hl(hl_sdk)}">
+  <div class="layer l-sdk {_hl(hl_sdk)}{blink_cls if hl_sdk else ''}">
     <div class="layer-label">Common SDK used by All Nodes</div>
     {_tag(hl_sdk, "SHARED", "tag-shared")}
   </div>
@@ -173,19 +183,94 @@ def _render_architecture_diagram(
 
 # ── Page config ──
 st.set_page_config(
-    page_title="KPIT Vehicle SDK Generator",
+    page_title="KPIT Vehicle Platform Builder",
     page_icon="🚗",
     layout="wide",
 )
 
-# ── Custom CSS ──
-st.markdown("""
+# ── KPIT Brand Constants ──
+KPIT_GREEN = "#61a229"
+KPIT_GREEN_DARK = "#4e8221"
+KPIT_GREEN_LIGHT = "#7bc043"
+KPIT_LOGO_SVG = (
+    '<svg width="74" height="21" viewBox="0 0 74 21" fill="none" xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M48.8978 0.395142H45.6201V20.6478H48.8978V0.395142Z" fill="currentColor"/>'
+    '<path d="M57.937 0.395111V3.21457H63.8176V20.5538H67.0228V0.395111H57.937Z" fill="currentColor"/>'
+    '<path d="M36.3267 2.22799C35.0492 1.02971 33.3155 0.418762 31.1711 0.418762H23.2401V20.5538H26.4695V13.529H30.9763C33.2178 13.529 35.025 12.9417 36.3025 11.767C36.9608 11.1401 37.4769 10.3851 37.8173 9.55097C38.1578 8.71684 38.3151 7.82215 38.279 6.92486C38.3018 6.05259 38.1403 5.18509 37.8043 4.37657C37.4684 3.56804 36.9654 2.83586 36.3267 2.22576M34.8804 6.92486C34.9141 7.42751 34.832 7.93114 34.6402 8.39872C34.4483 8.86629 34.1515 9.28589 33.7717 9.62667C32.8838 10.3125 31.7687 10.6555 30.6387 10.5901H26.4211V3.35542H30.8317C31.9009 3.30403 32.9506 3.64803 33.7717 4.31886C34.1463 4.64341 34.4407 5.04669 34.6327 5.49838C34.8248 5.95006 34.9095 6.43839 34.8804 6.92664" fill="currentColor"/>'
+    '<path d="M7.86768 10.1926L16.1582 0.395111H12.3257L5.28896 8.68861L5.19269 8.80625H3.86728V0.395111H0.685852V14.6551H3.86728V11.6248H5.24105L6.59064 13.2696L12.5675 20.5778H16.2549L7.86768 10.1926Z" fill="currentColor"/>'
+    '<path d="M2.78233 17.5877C2.32533 17.4614 1.83573 17.5167 1.42033 17.7416C1.00494 17.9665 0.697455 18.3428 0.564952 18.7882C0.502117 19.0079 0.484682 19.2376 0.513665 19.4639C0.542648 19.6902 0.61747 19.9086 0.733766 20.1064C0.970219 20.5097 1.35987 20.8057 1.81827 20.9303C1.96577 20.9765 2.11965 21.0002 2.27452 21.0007C2.5076 21.0039 2.739 20.9618 2.95528 20.8769C3.17155 20.792 3.36838 20.6659 3.53433 20.506C3.70028 20.3461 3.83203 20.1556 3.92193 19.9456C4.01183 19.7355 4.05808 19.5101 4.058 19.2824C4.05348 18.905 3.92775 18.5386 3.69853 18.2347C3.46932 17.9309 3.1482 17.7051 2.7805 17.589" fill="currentColor"/>'
+    '<path d="M72.2523 0.0653653C71.7953 -0.0608134 71.3058 -0.00542536 70.8904 0.219456C70.475 0.444338 70.1675 0.820477 70.0349 1.26587C69.9721 1.48554 69.9547 1.71522 69.9836 1.94153C70.0126 2.16784 70.0874 2.38625 70.2037 2.58403C70.4363 2.98098 70.8158 3.27583 71.2641 3.40799C71.4116 3.45411 71.5654 3.47786 71.7203 3.4784C72.1051 3.47819 72.4795 3.35662 72.7877 3.13179C73.096 2.90696 73.3217 2.5909 73.4312 2.23065C73.5589 1.7906 73.5072 1.31938 73.2871 0.915688C73.067 0.511993 72.6955 0.207123 72.2505 0.06492" fill="currentColor"/>'
+    '</svg>'
+)
+
+# ── Custom CSS + KPIT Branding ──
+st.markdown(f"""
 <style>
-    .workflow-step { padding: 4px 0; font-size: 0.9rem; }
-    .step-done { color: #28a745; }
-    .step-active { color: #ffc107; }
-    .step-pending { color: #6c757d; }
-    div[data-testid="stMetric"] { text-align: center; }
+    .workflow-step {{ padding: 4px 0; font-size: 0.9rem; }}
+    .step-done {{ color: {KPIT_GREEN}; }}
+    .step-active {{ color: #ffc107; }}
+    .step-pending {{ color: #6c757d; }}
+    div[data-testid="stMetric"] {{ text-align: center; }}
+
+    /* KPIT green primary buttons */
+    .stButton > button[kind="primary"],
+    button[data-testid="stBaseButton-primary"] {{
+        background-color: {KPIT_GREEN} !important;
+        border-color: {KPIT_GREEN} !important;
+    }}
+    .stButton > button[kind="primary"]:hover,
+    button[data-testid="stBaseButton-primary"]:hover {{
+        background-color: {KPIT_GREEN_DARK} !important;
+        border-color: {KPIT_GREEN_DARK} !important;
+    }}
+
+    /* KPIT green accents on tabs */
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        color: {KPIT_GREEN} !important;
+        border-bottom-color: {KPIT_GREEN} !important;
+    }}
+
+    /* Sidebar logo header */
+    .kpit-sidebar-logo {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 0 8px 0;
+    }}
+    .kpit-sidebar-logo svg {{
+        color: {KPIT_GREEN};
+        width: 60px;
+        height: auto;
+    }}
+    .kpit-sidebar-logo .kpit-title {{
+        font-size: 14px;
+        font-weight: 700;
+        color: #4a4a4a;
+        line-height: 1.3;
+    }}
+
+    /* Main page branded header */
+    .kpit-header {{
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 10px;
+    }}
+    .kpit-header svg {{
+        color: {KPIT_GREEN};
+        width: 80px;
+        height: auto;
+    }}
+    .kpit-header .kpit-header-text {{
+        font-size: 28px;
+        font-weight: 700;
+        color: #4a4a4a;
+    }}
+    .kpit-header .kpit-header-sub {{
+        font-size: 13px;
+        color: #999;
+        margin-top: 2px;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -267,7 +352,11 @@ def _folder_picker(label, key, placeholder="", help_text=None, container=st):
 # SIDEBAR
 # ═══════════════════════════════════════════════════════
 
-st.sidebar.title("KPIT Vehicle SDK Generator")
+st.sidebar.markdown(
+    f'<div class="kpit-sidebar-logo">{KPIT_LOGO_SVG}'
+    '<div class="kpit-title">Vehicle Platform<br/>Builder</div></div>',
+    unsafe_allow_html=True,
+)
 
 # ── Project Base Folder ──
 st.sidebar.subheader("Project Base Folder")
@@ -359,7 +448,12 @@ st.sidebar.markdown(
 # MAIN AREA
 # ═══════════════════════════════════════════════════════
 
-st.title("KPIT Vehicle SDK Generator")
+st.markdown(
+    f'<div class="kpit-header">{KPIT_LOGO_SVG}'
+    '<div><div class="kpit-header-text">Vehicle Platform Builder</div>'
+    '</div></div>',
+    unsafe_allow_html=True,
+)
 
 tab_ivi, tab_sdk = st.tabs(["Generate IVI Package", "Generate Vehicle SDK"])
 
@@ -574,6 +668,7 @@ with tab_ivi:
                         st.session_state["generated_files"] = generated
                         st.session_state["code_generated"] = True
                         st.session_state["bridge_dir"] = str(bridge_dir)
+                        st.session_state["diagram_blink"] = True
 
                     st.success(
                         f"Generated {len(generated)} files into {bridge_dir}\n\n"
@@ -589,11 +684,13 @@ with tab_ivi:
 
             # ── Architecture Diagram (shown after generation) ──
             has_sdk = bool(st.session_state.get("sdk_source_dir", ""))
+            should_blink = st.session_state.pop("diagram_blink", False)
             st.html(_render_architecture_diagram(
                 hl_bridge=True,
                 hl_daemon=True,
                 hl_vhal_service=True,
                 hl_sdk=has_sdk,
+                blink=should_blink,
             ))
 
             # Download ZIP of bridge directory
