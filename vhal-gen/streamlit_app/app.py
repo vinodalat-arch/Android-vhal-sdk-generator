@@ -432,7 +432,7 @@ st.sidebar.markdown(
     + _step_indicator(st.session_state.get("vhal_pulled", False), "VHAL Source Pulled")
     + _step_indicator(st.session_state.get("code_generated", False), "Code Generated")
     + _step_indicator(st.session_state.get("verified", False), "Verified")
-    + _step_indicator(st.session_state.get("deploy_tested", False), "Deploy Tested")
+    + _step_indicator(st.session_state.get("deploy_tested", False), "VHAL Deployed")
     + _step_indicator(st.session_state.get("vhal_committed", False), "VHAL Committed")
     + _step_indicator(st.session_state.get("vhal_pushed", False), "VHAL Pushed"),
     unsafe_allow_html=True,
@@ -885,8 +885,8 @@ with tab_ivi:
 
                 status.update(label="Verification complete", state="complete")
 
-    # ── 4b. Deploy Test ──
-    st.subheader("4b. Deploy Test")
+    # ── 4b. Build & Deploy VHAL ──
+    st.subheader("4b. Build & Deploy VHAL")
 
     # --- GCP Instance Config (collapsed by default) ---
     with st.expander("GCP Build Instance", expanded=False):
@@ -1013,54 +1013,23 @@ with tab_ivi:
     elif vm_status is not None:
         st.warning(f"Instance status: {vm_status}")
 
-    # --- Two Tabs: Incremental Build (default) vs Full Build ---
-    tab_incr, tab_full = st.tabs(["Incremental Build (GCP)", "Full Build (GCP)"])
+    # --- Two Tabs: Build on GCP vs Use Local Artifacts ---
+    tab_incr, tab_full = st.tabs(["Build VHAL on GCP", "Use Pre-built Artifacts"])
 
-    # -- Tab: Full Build --
+    # -- Tab: Use Pre-built Artifacts --
     with tab_full:
-        col_tag_dt, col_ref = st.columns(2)
-        with col_tag_dt:
-            deploy_aosp_tag = st.text_input(
-                "AOSP Tag",
-                value="android-14.0.0_r75",
-                key="deploy_aosp_tag",
-                help="AOSP tag used for the GCP build.",
-            )
-        with col_ref:
-            deploy_git_ref = st.text_input(
-                "Git Ref",
-                value="main",
-                key="deploy_git_ref",
-                help="Git branch or ref to build from.",
-            )
+        st.caption("Deploy pre-built VHAL artifacts to emulator without building on GCP.")
 
-        _has_generated_code = st.session_state.get("code_generated", False)
-        col_skip_gen, col_skip_build = st.columns(2)
-        with col_skip_gen:
-            deploy_skip_generate = st.checkbox(
-                "Skip Generate", key="deploy_skip_generate",
-                disabled=not _has_generated_code,
-                help="Skip code generation (use already-generated code)." if _has_generated_code
-                else "Generate code first (Step 3) before skipping.",
-            )
-        with col_skip_build:
-            deploy_skip_build = st.checkbox(
-                "Skip Build", key="deploy_skip_build",
-                value=True,
-                help="Skip GCP build and use pre-built artifacts.",
-            )
-
-        deploy_artifact_dir = ""
-        if deploy_skip_build:
-            deploy_artifact_dir = st.text_input(
-                "Artifact Directory",
-                key="deploy_artifact_dir",
-                placeholder="/path/to/artifacts",
-                help="Path to pre-built artifacts (required when skipping build).",
-            )
+        deploy_artifact_dir = st.text_input(
+            "Artifact Directory",
+            key="deploy_artifact_dir",
+            placeholder="/path/to/artifacts",
+            help="Path containing the VHAL binary and DefaultProperties.json.",
+        )
 
         deploy_full_clicked = st.button(
-            "Run Full Deploy Test", type="primary", use_container_width=True,
+            "Deploy to Emulator", type="primary", use_container_width=True,
+            disabled=not deploy_artifact_dir,
         )
 
         deploy_tested = st.session_state.get("deploy_tested", False)
@@ -1082,32 +1051,20 @@ with tab_ivi:
             st.caption("Run a successful deploy test first to enable commit and push.")
 
     if deploy_full_clicked:
-        model_dir_val = st.session_state.get("model_dir", "")
-        vhal_path_val = st.session_state.get("vhal_path", "")
-
-        if not model_dir_val or not Path(model_dir_val).is_dir():
-            st.error("Model not loaded. Set the YAML model directory in the sidebar and click Load Model.")
-        elif not vhal_path_val or not Path(vhal_path_val).is_dir():
-            st.error("VHAL source not found. Pull VHAL source or click Generate to auto-fetch it.")
-        elif deploy_skip_build and not (deploy_artifact_dir and Path(deploy_artifact_dir).is_dir()):
-            st.error("Artifact directory is required when 'Skip Build' is checked.")
+        if not deploy_artifact_dir or not Path(deploy_artifact_dir).is_dir():
+            st.error("Provide a valid artifact directory containing the VHAL binary and DefaultProperties.json.")
         else:
-            sdk_dir_val = st.session_state.get("sdk_source_dir", "")
-            sdk_path_arg = Path(sdk_dir_val) if sdk_dir_val and Path(sdk_dir_val).is_dir() else None
-            artifact_path_arg = Path(deploy_artifact_dir) if deploy_artifact_dir else None
-
+            model_dir_val = st.session_state.get("model_dir", "")
+            vhal_path_val = st.session_state.get("vhal_path", "")
             orchestrator = DeployOrchestrator()
-            with st.status("Running Full Deploy Test pipeline...", expanded=True) as status:
+            with st.status("Deploying pre-built artifacts...", expanded=True) as status:
                 all_lines: list[str] = []
                 for line in orchestrator.run(
-                    model_dir=Path(model_dir_val),
-                    vhal_dir=Path(vhal_path_val),
-                    sdk_dir=sdk_path_arg,
-                    skip_generate=deploy_skip_generate,
-                    skip_build=deploy_skip_build,
-                    artifact_dir=artifact_path_arg,
-                    git_ref=deploy_git_ref,
-                    aosp_tag=deploy_aosp_tag,
+                    model_dir=Path(model_dir_val) if model_dir_val else Path("."),
+                    vhal_dir=Path(vhal_path_val) if vhal_path_val else Path("."),
+                    skip_generate=True,
+                    skip_build=True,
+                    artifact_dir=Path(deploy_artifact_dir),
                 ):
                     all_lines.append(line)
                     if line.startswith("PASS"):
@@ -1128,10 +1085,10 @@ with tab_ivi:
                 has_fail = any(l.startswith("FAIL") for l in all_lines)
                 has_error = any(l.startswith("ERROR:") for l in all_lines)
                 if has_fail or has_error:
-                    status.update(label="Deploy test failed", state="error")
+                    status.update(label="Deploy failed", state="error")
                 else:
                     st.session_state["deploy_tested"] = True
-                    status.update(label="Deploy test passed!", state="complete")
+                    status.update(label="Deploy complete!", state="complete")
 
     if commit_vhal_clicked:
         vhal_path_val = st.session_state.get("vhal_path", "")
@@ -1185,9 +1142,9 @@ with tab_ivi:
                     st.session_state["vhal_pushed"] = True
                     status.update(label="VHAL source pushed!", state="complete")
 
-    # -- Tab: Incremental Build (default) --
+    # -- Tab: Build VHAL on GCP (default) --
     with tab_incr:
-        st.caption("Sync code to GCP instance, run incremental build (~5-15 min), and pull artifacts back.")
+        st.caption("Sync generated code to GCP, build VHAL module (~5-15 min), pull binary back, and deploy to emulator.")
 
         _has_generated_code_incr = st.session_state.get("code_generated", False)
         incr_skip_generate = st.checkbox(
@@ -1199,7 +1156,7 @@ with tab_ivi:
 
         gcp_ready = st.session_state.get("gcp_ready", False)
         deploy_incr_clicked = st.button(
-            "Run Incremental Deploy Test",
+            "Build & Deploy VHAL",
             type="primary",
             use_container_width=True,
             disabled=not gcp_ready,
@@ -1220,7 +1177,7 @@ with tab_ivi:
             sdk_path_arg = Path(sdk_dir_val) if sdk_dir_val and Path(sdk_dir_val).is_dir() else None
 
             orchestrator = DeployOrchestrator()
-            with st.status("Running Incremental Deploy Test...", expanded=True) as status:
+            with st.status("Building VHAL on GCP and deploying...", expanded=True) as status:
                 all_lines: list[str] = []
                 for line in orchestrator.run(
                     model_dir=Path(model_dir_val),
@@ -1251,7 +1208,7 @@ with tab_ivi:
                 has_fail = any(l.startswith("FAIL") for l in all_lines)
                 has_error = any(l.startswith("ERROR:") for l in all_lines)
                 if has_fail or has_error:
-                    status.update(label="Incremental deploy test failed", state="error")
+                    status.update(label="Build & deploy failed", state="error")
                 else:
                     st.session_state["deploy_tested"] = True
-                    status.update(label="Incremental deploy test passed!", state="complete")
+                    status.update(label="VHAL built and deployed!", state="complete")
