@@ -1,4 +1,4 @@
-# vhal-gen: FLYNC YAML → Android VHAL Code Generator
+# KPIT Vehicle Platform Builder
 
 ## Purpose
 
@@ -269,16 +269,16 @@ vhal-gen gcp-status --instance <instance-name> --zone us-central1-a
 streamlit run streamlit_app/app.py
 ```
 The UI provides:
-- **Architecture diagram** in Section 3 — interactive HTML/CSS layered diagram of the
-  Android Automotive stack. Highlights which layers vhal-gen modifies (Bridge, Daemon,
-  VehicleService, SDK) with color-coded tags (GENERATED, PATCHED, COPIED). Flow banner
-  updates based on pipeline state
-- **"Compile Check (Stubs)"** button in Section 4a — runs the full 8-file compile check
-  and streams per-file PASS/FAIL results
-- **GCP Instance Status card** in Section 4b — check instance readiness before building
-- **Two build tabs** in Section 4b — "Full Build (GitHub Actions)" for complete AOSP
-  builds, or "Incremental Build (GCP Instance)" for fast iterative development on a
-  pre-existing instance with a completed AOSP build
+- **KPIT-branded interface** with logo, green theme, and workflow progress tracker
+- **Architecture diagram** — interactive HTML/CSS layered diagram of the Android
+  Automotive stack with blink animation on generation, highlighting modified layers
+  (Bridge, Daemon, VehicleService, SDK) with color-coded tags (GENERATED, PATCHED, SHARED)
+- **Auto-pull** — Generate button auto-fetches VHAL source if not already pulled
+- **Compile Check** — validates generated code against Android VHAL headers
+- **GCP Instance Status** — check, start, and stop GCP build instances
+- **Two build modes** — Full Build (GitHub Actions) or Incremental Build (GCP Instance)
+- **Commit & Push** — commit and push generated VHAL source to git remote after
+  successful deploy test (chained: deploy → commit → push)
 
 ### Integration
 1. Copy `output/vhal/` contents into AOSP VHAL source directory
@@ -288,5 +288,5 @@ The UI provides:
 
 ## Constraints
 - Android 14 primary target (15/16 on roadmap)
-- Python 3.10+ required
+- Python 3.10+ required (3.14 tested)
 - Dependencies: pyyaml, jinja2, click, streamlit

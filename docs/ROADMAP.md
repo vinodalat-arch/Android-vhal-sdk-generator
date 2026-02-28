@@ -20,8 +20,18 @@
   check available via `gcp-status` CLI command and Streamlit UI status card
 - **Interactive architecture diagram** — HTML/CSS layered diagram of the Android Automotive
   stack shown in the Streamlit UI, highlighting exactly which layers vhal-gen modifies
-  (BridgeVehicleHardware, FlyncDaemon, VehicleService, SDK). Flow banner updates based
-  on pipeline progress (pre-generate, post-generate, post-deploy)
+  (BridgeVehicleHardware, FlyncDaemon, VehicleService, SDK) with blink animation on
+  generation. Uses KPIT green branding throughout
+- **KPIT branding** — SVG logo, green (#61a229) theme for buttons/tabs/highlights,
+  dark grey titles, branded sidebar and header
+- **Auto-pull VHAL source** — Generate button auto-fetches VHAL source from AOSP
+  Gerrit if not already pulled, removing manual prerequisite
+- **Commit & Push workflow** — after successful deploy test, commit generated code
+  locally and push to remote git repository (chained button flow)
+- **Configurable output directory** — default ~/kpit-vhal-output/ with browse picker,
+  independent of model and SDK paths
+- **Polished UI text** — plain English labels, help tooltips on all buttons, clear
+  error messages guiding users to the right action
 
 ## Future (v1.1+)
 
