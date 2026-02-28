@@ -232,7 +232,7 @@ class GcpBuilder:
         cmd = self._gcloud_base() + [
             "compute", "ssh", self._instance,
             "--zone", self._zone, "--quiet",
-            f"--command={build_script}",
+            "--", build_script,
         ]
         last_line = ""
         for line in self._shell.run_streaming(cmd):
