@@ -1,0 +1,152 @@
+name: Build VHAL
+
+on:
+  workflow_dispatch:
+    inputs:
+      aosp_tag:
+        description: "AOSP tag (e.g. android-14.0.0_r75)"
+        required: true
+        default: "android-14.0.0_r75"
+      build_target:
+        description: "Lunch target"
+        required: true
+        default: "sdk_car_x86_64-userdebug"
+      generated_code_ref:
+        description: "Git ref containing generated code (branch or SHA)"
+        required: true
+        default: "main"
+
+jobs:
+  build:
+    runs-on: [self-hosted, aosp-builder]
+    timeout-minutes: 180
+    env:
+      AOSP_DIR: /aosp
+
+    steps:
+      - name: Checkout generated code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.generated_code_ref }}
+
+      - name: Locate VHAL source in AOSP
+        id: paths
+        run: |
+          VHAL_AIDL="${AOSP_DIR}/hardware/interfaces/automotive/vehicle/aidl"
+          if [ ! -d "${VHAL_AIDL}" ]; then
+            echo "::error::AOSP VHAL directory not found: ${VHAL_AIDL}"
+            exit 1
+          fi
+          echo "vhal_aidl=${VHAL_AIDL}" >> "$GITHUB_OUTPUT"
+          echo "bridge_dir=${VHAL_AIDL}/impl/bridge" >> "$GITHUB_OUTPUT"
+
+      - name: Copy generated bridge code into AOSP tree
+        run: |
+          BRIDGE_SRC="output/aosp-vhal/${{ github.event.inputs.aosp_tag }}/automotive/vehicle/aidl/impl/bridge"
+          BRIDGE_DST="${{ steps.paths.outputs.bridge_dir }}"
+
+          if [ ! -d "${BRIDGE_SRC}" ]; then
+            echo "::error::Generated bridge code not found at: ${BRIDGE_SRC}"
+            echo "Available output dirs:"
+            ls -la output/ || true
+            exit 1
+          fi
+
+          echo "Copying generated code to AOSP tree..."
+          rm -rf "${BRIDGE_DST}"
+          cp -r "${BRIDGE_SRC}" "${BRIDGE_DST}"
+          echo "Files copied:"
+          find "${BRIDGE_DST}" -type f | head -30
+
+      - name: Copy patched VehicleService.cpp and vhal/Android.bp
+        run: |
+          VHAL_ROOT="${{ steps.paths.outputs.vhal_aidl }}"
+          OUTPUT_VHAL="output/aosp-vhal/${{ github.event.inputs.aosp_tag }}/automotive/vehicle/aidl"
+
+          # Copy patched VehicleService.cpp
+          VS_SRC="${OUTPUT_VHAL}/impl/vhal/src/VehicleService.cpp"
+          VS_DST="${VHAL_ROOT}/impl/vhal/src/VehicleService.cpp"
+          if [ -f "${VS_SRC}" ]; then
+            cp "${VS_SRC}" "${VS_DST}"
+            echo "Copied patched VehicleService.cpp"
+          fi
+
+          # Copy patched vhal/Android.bp
+          BP_SRC="${OUTPUT_VHAL}/impl/vhal/Android.bp"
+          BP_DST="${VHAL_ROOT}/impl/vhal/Android.bp"
+          if [ -f "${BP_SRC}" ]; then
+            cp "${BP_SRC}" "${BP_DST}"
+            echo "Copied patched vhal/Android.bp"
+          fi
+
+      - name: Build AOSP VHAL modules
+        run: |
+          cd "${AOSP_DIR}"
+          source build/envsetup.sh
+          lunch "${{ github.event.inputs.build_target }}"
+
+          echo "==> Building VHAL service..."
+          m android.hardware.automotive.vehicle@V3-default-service
+
+          echo "==> Building FlyncDaemon..."
+          m flync-daemon
+
+          echo "==> Building DefaultProperties.json..."
+          m flync-DefaultProperties.json
+
+      - name: Collect artifacts
+        id: artifacts
+        run: |
+          ARTIFACT_DIR="${GITHUB_WORKSPACE}/build-artifacts"
+          mkdir -p "${ARTIFACT_DIR}"
+
+          PRODUCT_OUT="${AOSP_DIR}/out/target/product/emulator_car_x86_64"
+
+          # VHAL service binary
+          VHAL_BIN=$(find "${PRODUCT_OUT}" -path "*/vendor/bin/hw/android.hardware.automotive.vehicle@V3-default-service" -type f | head -1)
+          if [ -n "${VHAL_BIN}" ]; then
+            cp "${VHAL_BIN}" "${ARTIFACT_DIR}/"
+            echo "Collected: $(basename "${VHAL_BIN}")"
+          else
+            echo "::warning::VHAL service binary not found in product output"
+          fi
+
+          # FlyncDaemon binary
+          DAEMON_BIN=$(find "${PRODUCT_OUT}" -path "*/vendor/bin/flync-daemon" -type f | head -1)
+          if [ -n "${DAEMON_BIN}" ]; then
+            cp "${DAEMON_BIN}" "${ARTIFACT_DIR}/"
+            echo "Collected: $(basename "${DAEMON_BIN}")"
+          else
+            echo "::warning::flync-daemon binary not found in product output"
+          fi
+
+          # DefaultProperties.json
+          PROPS_JSON=$(find "${PRODUCT_OUT}" -path "*/vendor/etc/automotive/vhal/flync-DefaultProperties.json" -type f | head -1)
+          if [ -n "${PROPS_JSON}" ]; then
+            cp "${PROPS_JSON}" "${ARTIFACT_DIR}/"
+            echo "Collected: $(basename "${PROPS_JSON}")"
+          else
+            echo "::warning::flync-DefaultProperties.json not found in product output"
+          fi
+
+          # Build info
+          cat > "${ARTIFACT_DIR}/build-info.json" <<EOF
+          {
+            "aosp_tag": "${{ github.event.inputs.aosp_tag }}",
+            "build_target": "${{ github.event.inputs.build_target }}",
+            "generated_code_ref": "${{ github.event.inputs.generated_code_ref }}",
+            "run_id": "${GITHUB_RUN_ID}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          echo "artifact_dir=${ARTIFACT_DIR}" >> "$GITHUB_OUTPUT"
+          echo "==> Artifacts:"
+          ls -lh "${ARTIFACT_DIR}"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vhal-build-${{ github.run_number }}
+          path: build-artifacts/
+          retention-days: 30

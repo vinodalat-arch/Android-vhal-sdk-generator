@@ -26,3 +26,12 @@ Thumbs.db
 
 # Streamlit
 .streamlit/
+
+# Build artifacts (downloaded from GCP pipeline)
+artifacts/
+
+# Infrastructure secrets
+infra/secrets/
+
+# Vehicle Body SDK (reference code — do not modify)
+performance-stack-Body-lighting-Draft/

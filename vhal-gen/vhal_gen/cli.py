@@ -139,6 +139,75 @@ def classify(model_dir: str):
         )
 
 
+@main.command()
+@click.argument("model_dir", type=click.Path(exists=True, file_okay=False))
+@click.option(
+    "--vhal-dir",
+    "vhal_dir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+    help="Path to pulled VHAL source (automotive/vehicle/aidl)",
+)
+@click.option(
+    "--sdk-dir",
+    "sdk_dir",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Vehicle Body SDK source directory (e.g. performance-stack-Body-lighting-Draft/src/)",
+)
+def test(model_dir: str, vhal_dir: str, sdk_dir: str | None):
+    """Generate code and run compile-check in one step (local, no cloud)."""
+    model_path = Path(model_dir)
+    vhal_root = Path(vhal_dir)
+    sdk_source_dir = Path(sdk_dir) if sdk_dir else None
+
+    # --- Stage 1: Generate ---
+    click.echo(click.style("=== Stage 1: Generate ===", bold=True))
+    click.echo(f"Loading FLYNC model from: {model_path}")
+    model = load_flync_model(model_path)
+    click.echo(f"  Parsed {len(model.pdus)} PDUs, {sum(len(p.signals) for p in model.pdus.values())} signals")
+
+    click.echo("Classifying signals...")
+    classifier = SignalClassifier()
+    mappings = classifier.classify(model)
+    standard = [m for m in mappings if m.is_standard]
+    vendor = [m for m in mappings if m.is_vendor]
+    click.echo(f"  {len(standard)} standard AOSP mappings, {len(vendor)} vendor mappings")
+
+    click.echo(f"Generating code into VHAL tree: {vhal_root}")
+    if sdk_source_dir:
+        click.echo(f"  SDK source: {sdk_source_dir}")
+    engine = GeneratorEngine(
+        mappings=mappings,
+        model=model,
+        sdk_source_dir=sdk_source_dir,
+    )
+    generated = engine.generate(vhal_root=vhal_root)
+    bridge_dir = vhal_root / "impl" / "bridge"
+    click.echo(f"  Generated {len(generated)} files to {bridge_dir}")
+
+    # --- Stage 2: Compile-check ---
+    click.echo()
+    click.echo(click.style("=== Stage 2: Compile Check ===", bold=True))
+    builder = StubBuilder()
+    has_fail = False
+    for line in builder.compile_check(vhal_root, sdk_dir=sdk_source_dir):
+        if line.startswith("PASS"):
+            click.echo(click.style(f"  {line}", fg="green"))
+        elif line.startswith("FAIL"):
+            click.echo(click.style(f"  {line}", fg="red"))
+            has_fail = True
+        elif line.startswith("ERROR:"):
+            click.echo(click.style(line, fg="red", bold=True))
+            has_fail = True
+        elif line.startswith("  "):
+            click.echo(click.style(f"    {line.strip()}", fg="yellow"))
+        elif line:
+            click.echo(line)
+
+    sys.exit(1 if has_fail else 0)
+
+
 @main.command("compile-check")
 @click.option(
     "--vhal-dir",
@@ -174,6 +243,99 @@ def compile_check(vhal_dir: str, sdk_dir: str | None):
             click.echo(click.style(f"    {line.strip()}", fg="yellow"))
         elif line:
             click.echo(line)
+    sys.exit(1 if has_fail else 0)
+
+
+def _echo_status_line(line: str) -> bool:
+    """Print a pipeline status line with colour.  Returns True if the line is a failure."""
+    if line.startswith("PASS"):
+        click.echo(click.style(f"  {line}", fg="green"))
+        return False
+    if line.startswith("FAIL"):
+        click.echo(click.style(f"  {line}", fg="red"))
+        return True
+    if line.startswith("ERROR:"):
+        click.echo(click.style(line, fg="red", bold=True))
+        return True
+    if line.startswith("WARNING:"):
+        click.echo(click.style(line, fg="yellow"))
+        return False
+    if line.startswith("  "):
+        click.echo(click.style(f"    {line.strip()}", fg="yellow"))
+        return False
+    if line.startswith("==="):
+        click.echo()
+        click.echo(click.style(line, bold=True))
+        return False
+    if line:
+        click.echo(line)
+    return False
+
+
+@main.command("deploy-test")
+@click.argument("model_dir", type=click.Path(exists=True, file_okay=False))
+@click.option(
+    "--vhal-dir",
+    "vhal_dir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+    help="Path to pulled VHAL source (automotive/vehicle/aidl)",
+)
+@click.option(
+    "--sdk-dir",
+    "sdk_dir",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Vehicle Body SDK source directory.",
+)
+@click.option("--skip-generate", is_flag=True, help="Skip code generation stage.")
+@click.option("--skip-build", is_flag=True, help="Skip GCP build (use cached artifacts).")
+@click.option(
+    "--artifact-dir",
+    "artifact_dir",
+    default=None,
+    type=click.Path(file_okay=False),
+    help="Path to pre-downloaded build artifacts.",
+)
+@click.option(
+    "--git-ref",
+    default="main",
+    help="Git ref to build (branch or SHA).",
+)
+@click.option(
+    "--aosp-tag",
+    default="android-14.0.0_r75",
+    help="AOSP tag for the build.",
+)
+def deploy_test(
+    model_dir: str,
+    vhal_dir: str,
+    sdk_dir: str | None,
+    skip_generate: bool,
+    skip_build: bool,
+    artifact_dir: str | None,
+    git_ref: str,
+    aosp_tag: str,
+):
+    """Full GCP pipeline: build on AOSP, push to emulator, verify properties."""
+    from .pipeline.deploy_orchestrator import DeployOrchestrator
+
+    orchestrator = DeployOrchestrator()
+    has_fail = False
+
+    for line in orchestrator.run(
+        model_dir=Path(model_dir),
+        vhal_dir=Path(vhal_dir),
+        sdk_dir=Path(sdk_dir) if sdk_dir else None,
+        skip_generate=skip_generate,
+        skip_build=skip_build,
+        artifact_dir=Path(artifact_dir) if artifact_dir else None,
+        git_ref=git_ref,
+        aosp_tag=aosp_tag,
+    ):
+        if _echo_status_line(line):
+            has_fail = True
+
     sys.exit(1 if has_fail else 0)
 
 
