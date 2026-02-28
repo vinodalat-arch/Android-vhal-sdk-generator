@@ -5,7 +5,7 @@ from __future__ import annotations
 # GitHub Actions
 WORKFLOW_FILE = "build-vhal.yml"
 DEFAULT_AOSP_TAG = "android-14.0.0_r75"
-DEFAULT_BUILD_TARGET = "sdk_car_x86_64-userdebug"
+DEFAULT_BUILD_TARGET = "sdk_car_x86_64-trunk_staging-userdebug"
 BUILD_TIMEOUT_SECONDS = 2 * 60 * 60  # 2 hours
 BUILD_POLL_INTERVAL_SECONDS = 30
 
@@ -48,7 +48,7 @@ ADB_REBOOT_WAIT_SECONDS = 60
 # GCP Incremental Build
 GCP_REMOTE_VHAL_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/bridge"
 GCP_REMOTE_BUILD_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/vhal"
-GCP_PRODUCT_OUT_PATH = "~/aosp/out/target/product/emulator_car_x86_64"
+GCP_PRODUCT_OUT_PATH = "~/aosp/out/target/product/emulator_car64_x86_64"
 GCP_INCREMENTAL_BUILD_TIMEOUT = 20 * 60  # 20 minutes
 GCP_ARTIFACT_REMOTE_PATHS = {
     "android.hardware.automotive.vehicle@V3-default-service": (

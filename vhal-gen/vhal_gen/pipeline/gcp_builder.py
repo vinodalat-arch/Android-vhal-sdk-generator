@@ -75,6 +75,47 @@ class GcpBuilder:
         else:
             yield f"FAIL Instance '{self._instance}' is {status} (expected RUNNING)"
 
+    def get_instance_status(self) -> str:
+        """Return raw instance status string, or 'NOT_FOUND'/'GCLOUD_ERROR'."""
+        rc, stdout, stderr = self._shell.run(
+            self._gcloud_base() + [
+                "compute", "instances", "describe", self._instance,
+                "--zone", self._zone, "--quiet", "--format=value(status)",
+            ],
+            timeout=15,
+        )
+        if rc != 0:
+            if "not found" in stderr.lower() or "Could not fetch" in stderr:
+                return "NOT_FOUND"
+            return "GCLOUD_ERROR"
+        return stdout.strip()
+
+    def start_instance(self) -> Iterator[str]:
+        """Start the instance."""
+        cmd = self._gcloud_base() + [
+            "compute", "instances", "start", self._instance,
+            "--zone", self._zone, "--quiet",
+        ]
+        yield f"Starting instance '{self._instance}' ..."
+        rc, _, stderr = self._shell.run(cmd, timeout=120)
+        if rc != 0:
+            yield f"ERROR: Failed to start instance — {stderr.strip()}"
+            return
+        yield f"PASS Instance '{self._instance}' started"
+
+    def stop_instance(self) -> Iterator[str]:
+        """Stop the instance (saves cost — disk charges still apply)."""
+        cmd = self._gcloud_base() + [
+            "compute", "instances", "stop", self._instance,
+            "--zone", self._zone, "--quiet",
+        ]
+        yield f"Stopping instance '{self._instance}' ..."
+        rc, _, stderr = self._shell.run(cmd, timeout=120)
+        if rc != 0:
+            yield f"ERROR: Failed to stop instance — {stderr.strip()}"
+            return
+        yield f"PASS Instance '{self._instance}' stopped"
+
     # -- internal pipeline steps ----------------------------------------
 
     def _sync_code(self, vhal_dir: Path) -> Iterator[str]:
@@ -99,7 +140,7 @@ class GcpBuilder:
         yield "Running incremental build (mma) ..."
         build_script = (
             "cd ~/aosp && source build/envsetup.sh && "
-            "lunch sdk_car_x86_64-userdebug && "
+            "lunch sdk_car_x86_64-trunk_staging-userdebug && "
             f"cd {config.GCP_REMOTE_BUILD_PATH} && "
             "mma -j$(nproc) 2>&1"
         )

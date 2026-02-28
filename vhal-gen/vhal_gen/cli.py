@@ -387,13 +387,37 @@ def deploy_test(
     default=None,
     help="GCP project ID (uses gcloud default if not set).",
 )
-def gcp_status(instance: str, zone: str, project: str | None):
-    """Check GCP instance status for incremental builds."""
+@click.option(
+    "--start", "action", flag_value="start",
+    help="Start the instance.",
+)
+@click.option(
+    "--stop", "action", flag_value="stop",
+    help="Stop the instance (saves compute cost).",
+)
+def gcp_status(instance: str, zone: str, project: str | None, action: str | None):
+    """Check, start, or stop a GCP instance for incremental builds."""
     from .pipeline.gcp_builder import GcpBuilder
 
     builder = GcpBuilder(
         instance_name=instance, zone=zone, project=project,
     )
+
+    if action == "start":
+        has_fail = False
+        for line in builder.start_instance():
+            if _echo_status_line(line):
+                has_fail = True
+        sys.exit(1 if has_fail else 0)
+
+    if action == "stop":
+        has_fail = False
+        for line in builder.stop_instance():
+            if _echo_status_line(line):
+                has_fail = True
+        sys.exit(1 if has_fail else 0)
+
+    # Default: check status
     has_fail = False
     for line in builder.check_gcloud():
         if _echo_status_line(line):

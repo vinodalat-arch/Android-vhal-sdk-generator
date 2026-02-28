@@ -118,6 +118,46 @@ class TestCheckInstance:
 
 
 # ---------------------------------------------------------------------------
+# get_instance_status / start / stop
+# ---------------------------------------------------------------------------
+
+class TestInstanceControl:
+
+    def test_get_status_running(self):
+        shell = FakeShellRunner()
+        shell.set_response("instances describe", 0, stdout="RUNNING")
+        builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        assert builder.get_instance_status() == "RUNNING"
+
+    def test_get_status_not_found(self):
+        shell = FakeShellRunner()
+        shell.set_response("instances describe", 1, stderr="not found")
+        builder = GcpBuilder(instance_name="vm-x", zone="us-central1-a", shell=shell)
+        assert builder.get_instance_status() == "NOT_FOUND"
+
+    def test_start_instance(self):
+        shell = FakeShellRunner()
+        shell.set_response("instances start", 0)
+        builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        lines = _collect(builder.start_instance())
+        assert any("PASS" in l and "started" in l for l in lines)
+
+    def test_stop_instance(self):
+        shell = FakeShellRunner()
+        shell.set_response("instances stop", 0)
+        builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        lines = _collect(builder.stop_instance())
+        assert any("PASS" in l and "stopped" in l for l in lines)
+
+    def test_start_failure(self):
+        shell = FakeShellRunner()
+        shell.set_response("instances start", 1, stderr="quota exceeded")
+        builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        lines = _collect(builder.start_instance())
+        assert any("ERROR:" in l for l in lines)
+
+
+# ---------------------------------------------------------------------------
 # _sync_code
 # ---------------------------------------------------------------------------
 

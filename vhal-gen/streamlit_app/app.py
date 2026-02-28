@@ -597,11 +597,11 @@ with tab_ivi:
 
     # --- GCP Instance Status Card ---
     st.markdown("**GCP Instance Status**")
-    col_inst, col_zone, col_proj, col_check = st.columns([3, 2, 2, 1])
+    col_inst, col_zone, col_proj = st.columns([3, 2, 2])
     with col_inst:
         gcp_instance_name = st.text_input(
             "Instance Name", key="gcp_instance_name",
-            placeholder="aosp-builder-1",
+            placeholder="aosp-builder",
         )
     with col_zone:
         gcp_zone = st.text_input(
@@ -612,21 +612,38 @@ with tab_ivi:
             "Project (optional)", key="gcp_project",
             placeholder="my-gcp-project",
         )
+
+    col_check, col_start, col_stop = st.columns(3)
     with col_check:
-        st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
-        check_status_clicked = st.button("Check Status")
+        check_status_clicked = st.button(
+            "Check Status", use_container_width=True,
+            disabled=not gcp_instance_name,
+        )
+    with col_start:
+        start_clicked = st.button(
+            "Start Instance", use_container_width=True,
+            disabled=not gcp_instance_name,
+        )
+    with col_stop:
+        stop_clicked = st.button(
+            "Stop Instance", use_container_width=True,
+            disabled=not gcp_instance_name,
+            help="Stop the VM to save cost. Disk charges still apply (~$85/mo for 500GB SSD).",
+        )
+
+    def _make_gcp_builder():
+        from vhal_gen.pipeline.gcp_builder import GcpBuilder
+        return GcpBuilder(
+            instance_name=gcp_instance_name,
+            zone=gcp_zone,
+            project=gcp_project or None,
+        )
 
     if check_status_clicked:
         if not gcp_instance_name:
             st.error("Enter an instance name to check status.")
         else:
-            from vhal_gen.pipeline.gcp_builder import GcpBuilder
-
-            gcp_builder = GcpBuilder(
-                instance_name=gcp_instance_name,
-                zone=gcp_zone,
-                project=gcp_project or None,
-            )
+            gcp_builder = _make_gcp_builder()
             with st.status("Checking GCP instance...", expanded=True) as gcp_status:
                 gcp_ok = True
                 for line in gcp_builder.check_gcloud():
@@ -647,16 +664,60 @@ with tab_ivi:
                             st.error(line)
                             gcp_ok = False
 
+                vm_status = gcp_builder.get_instance_status() if gcp_ok or not gcp_ok else "UNKNOWN"
                 st.session_state["gcp_ready"] = gcp_ok
+                st.session_state["gcp_vm_status"] = vm_status if gcp_ok else gcp_builder.get_instance_status()
                 if gcp_ok:
                     gcp_status.update(label="Instance ready", state="complete")
                 else:
                     gcp_status.update(label="Instance not ready", state="error")
 
-    if st.session_state.get("gcp_ready") is True:
-        st.success("Instance Ready")
-    elif st.session_state.get("gcp_ready") is False:
-        st.error("Instance Not Ready")
+    if start_clicked and gcp_instance_name:
+        gcp_builder = _make_gcp_builder()
+        with st.status("Starting instance...", expanded=True) as start_status:
+            for line in gcp_builder.start_instance():
+                if line.startswith("PASS"):
+                    st.write(f":white_check_mark: {line}")
+                    st.session_state["gcp_ready"] = True
+                    st.session_state["gcp_vm_status"] = "RUNNING"
+                    start_status.update(label="Instance started", state="complete")
+                elif line.startswith("ERROR:"):
+                    st.error(line)
+                    start_status.update(label="Start failed", state="error")
+                else:
+                    st.write(line)
+
+    if stop_clicked and gcp_instance_name:
+        gcp_builder = _make_gcp_builder()
+        with st.status("Stopping instance...", expanded=True) as stop_status:
+            for line in gcp_builder.stop_instance():
+                if line.startswith("PASS"):
+                    st.write(f":white_check_mark: {line}")
+                    st.session_state["gcp_ready"] = False
+                    st.session_state["gcp_vm_status"] = "TERMINATED"
+                    stop_status.update(label="Instance stopped", state="complete")
+                elif line.startswith("ERROR:"):
+                    st.error(line)
+                    stop_status.update(label="Stop failed", state="error")
+                else:
+                    st.write(line)
+
+    # --- Status indicator ---
+    vm_status = st.session_state.get("gcp_vm_status")
+    if vm_status == "RUNNING":
+        st.success("Instance RUNNING — ~$0.54/hr (e2-standard-16). Stop when not in use.")
+    elif vm_status == "TERMINATED":
+        st.info("Instance STOPPED — no compute charges. Disk: ~$85/mo (500GB SSD).")
+    elif vm_status == "STAGING":
+        st.warning("Instance STAGING — starting up...")
+    elif vm_status == "STOPPING":
+        st.warning("Instance STOPPING ...")
+    elif vm_status == "NOT_FOUND":
+        st.error("Instance not found.")
+    elif vm_status == "GCLOUD_ERROR":
+        st.error("Could not reach GCP — check gcloud auth.")
+    elif vm_status is not None:
+        st.warning(f"Instance status: {vm_status}")
 
     # --- Two Tabs: Full Build vs Incremental Build ---
     tab_full, tab_incr = st.tabs(["Full Build (GitHub Actions)", "Incremental Build (GCP Instance)"])
