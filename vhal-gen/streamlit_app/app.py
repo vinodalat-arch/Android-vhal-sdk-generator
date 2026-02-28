@@ -30,7 +30,7 @@ def _render_architecture_diagram(
 ) -> str:
     """Return HTML for the Android Automotive layered architecture diagram.
 
-    Highlighted layers get an orange glow to show what vhal-gen modifies.
+    Highlighted layers get a green glow to show what vhal-gen modifies.
     """
     blink_cls = " blink" if blink else ""
 
@@ -358,38 +358,18 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Project Base Folder ──
-st.sidebar.subheader("Project Base Folder")
-project_base = _folder_picker(
-    "Base path", "project_base",
-    placeholder="/path/to/project", container=st.sidebar,
-)
-
-# Auto-populate derived paths when project base changes
-_prev_base = st.session_state.get("_prev_project_base", "")
-if project_base != _prev_base:
-    st.session_state["_prev_project_base"] = project_base
-    if project_base:
-        _base = Path(project_base)
-        st.session_state["model_dir"] = str(_base / "flync-model-dev-2")
-        st.session_state["sdk_source_dir"] = str(
-            _base / "performance-stack-Body-lighting-Draft" / "src"
-        )
-    else:
-        st.session_state["model_dir"] = ""
-        st.session_state["sdk_source_dir"] = ""
-
 # ── Output Directory ──
 _DEFAULT_OUTPUT_DIR = str(Path.home() / "kpit-vhal-output")
+if "output_dir" not in st.session_state:
+    st.session_state["output_dir"] = _DEFAULT_OUTPUT_DIR
 st.sidebar.subheader("Output Directory")
 output_dir = _folder_picker(
     "Output path", "output_dir",
     placeholder=_DEFAULT_OUTPUT_DIR, container=st.sidebar,
+    help_text=f"Default: {_DEFAULT_OUTPUT_DIR}. VHAL source is pulled and generated code is written here.",
 )
 if not output_dir:
     output_dir = _DEFAULT_OUTPUT_DIR
-    st.session_state["output_dir"] = output_dir
-st.sidebar.caption(f"VHAL source will be pulled to: `{output_dir}`")
 
 # ── YAML Model Input ──
 st.sidebar.subheader("YAML Model")
@@ -484,7 +464,7 @@ with tab_ivi:
     st.header("1. Signal Mapping")
 
     if not st.session_state.get("model_loaded"):
-        st.warning("Load a FLYNC model from the sidebar to begin.")
+        st.warning("Set the YAML model directory in the sidebar and click **Load Model** to begin.")
     else:
         model = st.session_state["model"]
         mappings = st.session_state["mappings"]
@@ -496,7 +476,7 @@ with tab_ivi:
         col2.metric("Vendor", len(vendor))
         col3.metric("Total Signals", len(mappings))
 
-        if st.button("Re-classify Signals"):
+        if st.button("Re-classify Signals", help="Re-run signal classification after changing the model or mapping rules."):
             classifier = SignalClassifier()
             st.session_state["mappings"] = classifier.classify(model)
             st.rerun()
@@ -545,11 +525,11 @@ with tab_ivi:
         gerrit_url = st.text_input(
             "Gerrit URL",
             value=GerritFetcher.GERRIT_URL,
-            help="Android Gerrit repository for VHAL AIDL interfaces.",
+            help="Source repository URL for Android VHAL code. Default points to official AOSP.",
         )
     with col_fetch:
-        st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
-        if st.button("Fetch Tags"):
+        st.markdown("&nbsp;", unsafe_allow_html=True)
+        if st.button("Fetch Tags", help="Query the repository for available Android 14 release tags."):
             fetcher = GerritFetcher()
             fetcher.GERRIT_URL = gerrit_url
             with st.spinner("Querying Gerrit..."):
@@ -574,7 +554,7 @@ with tab_ivi:
     st.session_state["vhal_tag"] = tag
     st.session_state["gerrit_url"] = gerrit_url
 
-    if st.button("Pull VHAL Source", type="primary"):
+    if st.button("Pull VHAL Source", type="primary", help="Download Android VHAL source code from the repository into the output directory."):
         fetcher = GerritFetcher()
         fetcher.GERRIT_URL = gerrit_url
         target_dir = Path(st.session_state.get("output_dir", _DEFAULT_OUTPUT_DIR))
@@ -599,21 +579,11 @@ with tab_ivi:
 
     st.subheader("Build Configuration")
 
-    col_ver, col_sdk = st.columns(2)
-    with col_ver:
-        android_version = st.selectbox(
-            "Android Version",
-            options=["14"],
-            index=0,
-            help="Android 15/16 support is on the roadmap.",
-        )
-        st.session_state["android_version"] = android_version
-
-    with col_sdk:
-        sdk_source_dir = _folder_picker(
-            "Vehicle Body SDK Directory", "sdk_source_dir",
-            help_text="Path to Vehicle Body SDK source (com/, can_io/, app/swc/).",
-        )
+    st.caption("Target: **Android 14** (Android 15/16 on roadmap)")
+    sdk_source_dir = _folder_picker(
+        "Vehicle Body SDK Directory (optional)", "sdk_source_dir",
+        help_text="Path to Vehicle Body SDK source directory. SDK files will be copied into the generated package.",
+    )
 
     st.divider()
 
@@ -623,7 +593,7 @@ with tab_ivi:
     st.header("3. Generate IVI Package")
 
     if not st.session_state.get("model_loaded"):
-        st.warning("Load a model first to generate code.")
+        st.warning("Set the YAML model directory in the sidebar and click **Load Model** to begin.")
     else:
         model = st.session_state["model"]
         mappings = st.session_state["mappings"]
@@ -632,8 +602,8 @@ with tab_ivi:
         vhal_path = st.session_state.get("vhal_path", "")
         st.markdown(
             f"**Mappings:** {len(mappings)} signals · "
-            f"**SDK:** {sdk_dir or 'not set'} · "
-            f"**VHAL tree:** {vhal_path or 'will auto-pull'}"
+            f"**SDK:** {sdk_dir or 'not configured (optional)'} · "
+            f"**VHAL tree:** {vhal_path or 'will be fetched automatically'}"
         )
 
         if st.button("Generate", type="primary"):
@@ -685,8 +655,7 @@ with tab_ivi:
                         st.session_state["diagram_blink"] = True
 
                     st.success(
-                        f"Generated {len(generated)} files into {bridge_dir}\n\n"
-                        "VehicleService.cpp and vhal/Android.bp auto-modified."
+                        f"Generated {len(generated)} files into `{bridge_dir}`"
                     )
                     st.rerun()
                 except Exception as e:
@@ -754,25 +723,33 @@ with tab_ivi:
 
     with col_stub:
         stub_clicked = st.button(
-            "Compile Check (Stubs)",
+            "Compile Check",
             use_container_width=True,
             disabled=not st.session_state.get("code_generated", False),
+            help="Validate generated code compiles against Android VHAL headers.",
         )
     with col_e:
-        emulator_clicked = st.button("Run Emulator", use_container_width=True)
+        emulator_clicked = st.button(
+            "Emulator Status",
+            use_container_width=True,
+            help="Check available Android Automotive emulators on this machine.",
+        )
     with col_v:
-        verify_clicked = st.button("Verify Properties", use_container_width=True)
+        verify_clicked = st.button(
+            "Verify Properties",
+            use_container_width=True,
+            help="Query a connected device/emulator to verify generated properties are registered.",
+        )
 
     if stub_clicked:
         vhal_path = st.session_state.get("vhal_path")
         if not vhal_path:
-            st.warning("Pull VHAL source and generate code first.")
+            st.warning("Generate code first (Section 3) before running compile check.")
         else:
             builder = StubBuilder()
-            # Resolve SDK source dir with multiple fallbacks:
+            # Resolve SDK source dir with fallbacks:
             # 1. Session state sdk_source_dir (set by sidebar or Section 2)
-            # 2. Infer from project_base session state
-            # 3. Auto-detect from vhal_path (walk up to find "output", go to parent)
+            # 2. Auto-detect from vhal_path (walk up to find "output", go to parent)
             sdk_path = None
             vhal_root = Path(str(vhal_path))
 
@@ -784,21 +761,14 @@ with tab_ivi:
                 if sdk_dir_str and Path(sdk_dir_str).is_dir():
                     sdk_path = Path(sdk_dir_str)
                 else:
-                    # Try project_base
-                    base_str = st.session_state.get("project_base", "")
-                    if base_str:
-                        candidate = Path(base_str) / "performance-stack-Body-lighting-Draft" / "src"
+                    # Auto-detect from vhal_path: walk up to find "output" dir
+                    parts = Path(str(vhal_path)).parts
+                    if "output" in parts:
+                        idx = parts.index("output")
+                        inferred_base = Path(*parts[:idx])
+                        candidate = inferred_base / "performance-stack-Body-lighting-Draft" / "src"
                         if candidate.is_dir():
                             sdk_path = candidate
-                    # Auto-detect from vhal_path: walk up to find "output" dir
-                    if sdk_path is None:
-                        parts = Path(str(vhal_path)).parts
-                        if "output" in parts:
-                            idx = parts.index("output")
-                            inferred_base = Path(*parts[:idx])
-                            candidate = inferred_base / "performance-stack-Body-lighting-Draft" / "src"
-                            if candidate.is_dir():
-                                sdk_path = candidate
                     # Fallback: look near the tool's own project root
                     if sdk_path is None:
                         tool_root = Path(__file__).resolve().parent.parent.parent
@@ -838,8 +808,7 @@ with tab_ivi:
             rc, stdout, stderr = runner.run(["emulator", "-list-avds"])
             if rc != 0:
                 st.warning(
-                    "Not available — `emulator` not found. "
-                    "Install Android SDK Emulator and ensure it's in PATH."
+                    "Emulator not found. Install Android SDK Emulator and ensure it is in your system PATH."
                 )
                 status.update(label="Emulator not available", state="error")
             else:
@@ -865,8 +834,7 @@ with tab_ivi:
             )
             if rc != 0:
                 st.warning(
-                    "Not available — cannot reach device via `adb`. "
-                    "Ensure a device/emulator is connected and running."
+                    "No device connected. Ensure an Android device or emulator is running and connected via ADB."
                 )
                 if stderr:
                     st.code(stderr)
@@ -930,7 +898,7 @@ with tab_ivi:
         stop_clicked = st.button(
             "Stop Instance", use_container_width=True,
             disabled=not gcp_instance_name,
-            help="Stop the VM to save cost. Disk charges still apply (~$85/mo for 500GB SSD).",
+            help="Stop the VM to save compute cost. Storage charges still apply while the disk exists.",
         )
 
     def _make_gcp_builder():
@@ -1007,17 +975,17 @@ with tab_ivi:
     # --- Status indicator ---
     vm_status = st.session_state.get("gcp_vm_status")
     if vm_status == "RUNNING":
-        st.success("Instance RUNNING — ~$0.54/hr (e2-standard-16). Stop when not in use.")
+        st.success("Instance is running. Stop it when not in use to save costs.")
     elif vm_status == "TERMINATED":
-        st.info("Instance STOPPED — no compute charges. Disk: ~$85/mo (500GB SSD).")
+        st.info("Instance is stopped. No compute charges apply.")
     elif vm_status == "STAGING":
         st.warning("Instance STAGING — starting up...")
     elif vm_status == "STOPPING":
         st.warning("Instance STOPPING ...")
     elif vm_status == "NOT_FOUND":
-        st.error("Instance not found.")
+        st.error("Instance not found. Verify the instance name and zone are correct.")
     elif vm_status == "GCLOUD_ERROR":
-        st.error("Could not reach GCP — check gcloud auth.")
+        st.error("Cannot connect to GCP. Run `gcloud auth login` in your terminal to authenticate.")
     elif vm_status is not None:
         st.warning(f"Instance status: {vm_status}")
 
@@ -1090,9 +1058,9 @@ with tab_ivi:
         vhal_path_val = st.session_state.get("vhal_path", "")
 
         if not model_dir_val or not Path(model_dir_val).is_dir():
-            st.error("Model directory not set or not found. Load a model first.")
+            st.error("Model not loaded. Set the YAML model directory in the sidebar and click Load Model.")
         elif not vhal_path_val or not Path(vhal_path_val).is_dir():
-            st.error("VHAL source not found. Pull VHAL source first (Section 2).")
+            st.error("VHAL source not found. Pull VHAL source or click Generate to auto-fetch it.")
         elif deploy_skip_build and not (deploy_artifact_dir and Path(deploy_artifact_dir).is_dir()):
             st.error("Artifact directory is required when 'Skip Build' is checked.")
         else:
@@ -1140,7 +1108,7 @@ with tab_ivi:
     if commit_vhal_clicked:
         vhal_path_val = st.session_state.get("vhal_path", "")
         if not vhal_path_val or not Path(vhal_path_val).is_dir():
-            st.error("VHAL source not found. Pull VHAL source first (Section 2).")
+            st.error("VHAL source not found. Pull VHAL source or click Generate to auto-fetch it.")
         else:
             shell = ShellRunner()
             vhal_p = Path(vhal_path_val)
@@ -1191,7 +1159,7 @@ with tab_ivi:
 
     # -- Tab 2: Incremental Build --
     with tab_incr:
-        st.caption("Sync code to GCP instance, run incremental mma (~5-15 min), pull artifacts back.")
+        st.caption("Sync code to GCP instance, run incremental build (~5-15 min), and pull artifacts back.")
 
         incr_skip_generate = st.checkbox(
             "Skip Generate", key="incr_skip_generate",
@@ -1213,9 +1181,9 @@ with tab_ivi:
         vhal_path_val = st.session_state.get("vhal_path", "")
 
         if not model_dir_val or not Path(model_dir_val).is_dir():
-            st.error("Model directory not set or not found. Load a model first.")
+            st.error("Model not loaded. Set the YAML model directory in the sidebar and click Load Model.")
         elif not vhal_path_val or not Path(vhal_path_val).is_dir():
-            st.error("VHAL source not found. Pull VHAL source first (Section 2).")
+            st.error("VHAL source not found. Pull VHAL source or click Generate to auto-fetch it.")
         else:
             sdk_dir_val = st.session_state.get("sdk_source_dir", "")
             sdk_path_arg = Path(sdk_dir_val) if sdk_dir_val and Path(sdk_dir_val).is_dir() else None
