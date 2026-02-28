@@ -159,11 +159,21 @@ class GcpBuilder:
             yield f"ERROR: Bridge directory not found at {bridge_local}"
             return
 
+        # Clean remote bridge dir first, then upload contents
         yield f"Syncing bridge code from {bridge_local} ..."
+        clean_cmd = self._gcloud_base() + [
+            "compute", "ssh", self._instance,
+            "--zone", self._zone, "--quiet", "--",
+            f"rm -rf {config.GCP_REMOTE_VHAL_PATH} && mkdir -p {config.GCP_REMOTE_VHAL_PATH}",
+        ]
+        self._shell.run(clean_cmd, timeout=30)
+
         cmd = self._gcloud_base() + [
             "compute", "scp", "--recurse",
-            f"{bridge_local}/",
-            f"{self._instance}:{config.GCP_REMOTE_VHAL_PATH}/",
+            # Glob all contents of bridge_local so SCP puts files directly
+            # into the remote path (not nested bridge/bridge/)
+            f"{bridge_local}",
+            f"{self._instance}:{config.GCP_REMOTE_VHAL_PATH}/../",
             "--zone", self._zone, "--quiet",
         ]
         rc, _, stderr = self._shell.run(
@@ -180,19 +190,34 @@ class GcpBuilder:
             yield f"ERROR: VHAL directory not found at {vhal_local}"
             return
 
-        yield f"Syncing patched vhal files from {vhal_local} ..."
-        cmd = self._gcloud_base() + [
-            "compute", "scp", "--recurse",
-            f"{vhal_local}/",
-            f"{self._instance}:{config.GCP_REMOTE_BUILD_PATH}/",
-            "--zone", self._zone, "--quiet",
+        # Only upload the specific patched files, not the entire vhal/ dir.
+        # This avoids overwriting AOSP-original files (include/, test/) and
+        # prevents SCP nesting issues.
+        patched_files = [
+            vhal_local / "src" / "VehicleService.cpp",
+            vhal_local / "Android.bp",
         ]
-        rc, _, stderr = self._shell.run(
-            cmd, timeout=config.GCP_INCREMENTAL_BUILD_TIMEOUT,
-        )
-        if rc != 0:
-            yield f"ERROR: SCP upload of vhal/ failed — {stderr.strip()}"
-            return
+        for local_file in patched_files:
+            if not local_file.exists():
+                yield f"ERROR: Patched file not found at {local_file}"
+                return
+
+            # Map local path relative to vhal_local → remote path
+            rel = local_file.relative_to(vhal_local)
+            remote = f"{self._instance}:{config.GCP_REMOTE_BUILD_PATH}/{rel}"
+
+            yield f"Syncing {rel} ..."
+            cmd = self._gcloud_base() + [
+                "compute", "scp",
+                str(local_file), remote,
+                "--zone", self._zone, "--quiet",
+            ]
+            rc, _, stderr = self._shell.run(
+                cmd, timeout=config.GCP_INCREMENTAL_BUILD_TIMEOUT,
+            )
+            if rc != 0:
+                yield f"ERROR: SCP upload of {rel} failed — {stderr.strip()}"
+                return
         yield "PASS Patched vhal files synced"
 
     def _run_build(self) -> Iterator[str]:

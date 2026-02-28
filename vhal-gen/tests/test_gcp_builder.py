@@ -167,7 +167,9 @@ class TestSyncCode:
         """Create a vhal_dir with impl/bridge/ and impl/vhal/ subdirs."""
         vhal_dir = tmp_path / "vhal"
         (vhal_dir / "impl" / "bridge").mkdir(parents=True)
-        (vhal_dir / "impl" / "vhal").mkdir(parents=True)
+        (vhal_dir / "impl" / "vhal" / "src").mkdir(parents=True)
+        (vhal_dir / "impl" / "vhal" / "Android.bp").write_text("cc_binary {}")
+        (vhal_dir / "impl" / "vhal" / "src" / "VehicleService.cpp").write_text("int main() {}")
         return vhal_dir
 
     def test_sync_success(self, tmp_path: Path):
@@ -182,9 +184,9 @@ class TestSyncCode:
         assert len(pass_lines) == 2
         assert any("Bridge" in l for l in pass_lines)
         assert any("vhal" in l.lower() for l in pass_lines)
-        # Should have made 2 SCP calls
+        # Should have made 3 SCP calls: 1 for bridge + 2 individual vhal files
         scp_calls = [c for c in shell.calls if "scp" in " ".join(c)]
-        assert len(scp_calls) == 2
+        assert len(scp_calls) == 3
 
     def test_sync_bridge_scp_failure(self, tmp_path: Path):
         shell = FakeShellRunner()
@@ -252,7 +254,9 @@ class TestBuildIncremental:
 
         vhal_dir = tmp_path / "vhal"
         (vhal_dir / "impl" / "bridge").mkdir(parents=True)
-        (vhal_dir / "impl" / "vhal").mkdir(parents=True)
+        (vhal_dir / "impl" / "vhal" / "src").mkdir(parents=True)
+        (vhal_dir / "impl" / "vhal" / "Android.bp").write_text("cc_binary {}")
+        (vhal_dir / "impl" / "vhal" / "src" / "VehicleService.cpp").write_text("int main() {}")
         artifact_dir = tmp_path / "artifacts"
 
         lines = _collect(builder.build_incremental(

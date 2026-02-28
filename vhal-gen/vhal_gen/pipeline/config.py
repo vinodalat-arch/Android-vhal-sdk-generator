@@ -23,6 +23,9 @@ DEVICE_VHAL_SERVICE_NAME_EMU = "vendor.vehicle-hal-emulator"
 ARTIFACT_FILES = [
     VHAL_SERVICE_BINARY,
     "DefaultProperties.json",
+    "flync-daemon",
+    "libbase.so",
+    "DefaultVehicleHal.so",
     "build-info.json",
 ]
 
@@ -30,16 +33,16 @@ ARTIFACT_FILES = [
 # The VHAL binary is pushed under the stock binary name so init.rc picks it up
 # without needing to modify the init script.
 DEVICE_VHAL_SERVICE_DIR = "/vendor/bin/hw"
-DEVICE_CONFIG_DIR = "/vendor/etc/automotive/vhalconfig"
+DEVICE_CONFIG_DIR = "/vendor/etc/automotive/vhal"
 DEVICE_VINTF_DIR = "/vendor/etc/vintf/manifest"
 
 DEVICE_PATHS = {
     VHAL_SERVICE_BINARY: (
         f"{DEVICE_VHAL_SERVICE_DIR}/{DEVICE_VHAL_BINARY_NAME}"
     ),
-    "DefaultProperties.json": (
-        f"{DEVICE_CONFIG_DIR}/DefaultProperties.json"
-    ),
+    "flync-daemon": "/vendor/bin/flync-daemon",
+    "libbase.so": "/vendor/lib64/libbase.so",
+    "DefaultVehicleHal.so": "/vendor/lib64/DefaultVehicleHal.so",
 }
 
 # VINTF manifest to push — upgrades the stock V2 declaration to V3
@@ -77,7 +80,7 @@ GCP_ARTIFACT_REMOTE_PATHS = {
     VHAL_SERVICE_BINARY: (
         f"vendor/bin/hw/{VHAL_SERVICE_BINARY}"
     ),
-    "DefaultProperties.json": (
-        "vendor/etc/automotive/vhalconfig/DefaultProperties.json"
-    ),
+    "flync-daemon": "vendor/bin/flync-daemon",
+    "libbase.so": "vendor/lib64/libbase.so",
+    "DefaultVehicleHal.so": "vendor/lib64/DefaultVehicleHal.so",
 }

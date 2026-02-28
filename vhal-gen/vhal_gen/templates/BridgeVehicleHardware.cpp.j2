@@ -136,8 +136,8 @@ void BridgeVehicleHardware::loadPropertyConfigs(const std::string& configPath) {
                 VehicleAreaConfig ac{};
                 ac.areaId = area["areaId"].asInt();
                 if (area.isMember("minInt32Value")) {
-                    ac.minInt32Value = area["minInt32Value"].asInt();
-                    ac.maxInt32Value = area["maxInt32Value"].asInt();
+                    ac.minInt32Value = static_cast<int32_t>(area["minInt32Value"].asInt64());
+                    ac.maxInt32Value = static_cast<int32_t>(area["maxInt32Value"].asInt64());
                 }
                 if (area.isMember("minFloatValue")) {
                     ac.minFloatValue = area["minFloatValue"].asFloat();

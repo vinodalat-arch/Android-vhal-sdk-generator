@@ -138,7 +138,7 @@ class DeployOrchestrator:
         # --- Stage 5: Deploy to emulator ---
         yield ""
         yield "=== Stage 5: Deploy to Emulator ==="
-        for line in self._deployer.deploy(artifact_dir, self._artifacts):
+        for line in self._deployer.deploy(artifact_dir, self._artifacts, vhal_dir=vhal_dir):
             yield line
             if line.startswith("ERROR:"):
                 yield "Pipeline aborted — deploy failed."

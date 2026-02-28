@@ -21,7 +21,7 @@
 {% if prop.property_type.value == 0x00600000 %}
             "areas": [{"areaId": {{ prop.area_id }}, "minFloatValue": {{ prop.lower_limit }}, "maxFloatValue": {{ prop.upper_limit }}}],
 {% else %}
-            "areas": [{"areaId": {{ prop.area_id }}, "minInt32Value": {{ prop.lower_limit | int }}, "maxInt32Value": {{ prop.upper_limit | int }}}],
+            "areas": [{"areaId": {{ prop.area_id }}, "minInt32Value": {{ [prop.lower_limit | int, -2147483648] | max }}, "maxInt32Value": {{ [prop.upper_limit | int, 2147483647] | min }}}],
 {% endif %}
 {% if prop.change_mode.value == 0x02 %}
             "maxSampleRate": 10.0,

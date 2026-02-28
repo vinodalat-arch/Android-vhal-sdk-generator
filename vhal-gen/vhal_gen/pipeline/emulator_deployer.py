@@ -20,12 +20,14 @@ class EmulatorDeployer:
         self,
         artifact_dir: Path,
         artifact_manager: object | None = None,
+        vhal_dir: Path | None = None,
     ) -> Iterator[str]:
         """Push binaries to emulator and restart VHAL service.
 
         Args:
             artifact_dir: Directory containing downloaded build artifacts.
             artifact_manager: Optional ArtifactManager for file lookup.
+            vhal_dir: Generator output dir containing impl/bridge/DefaultProperties.json.
 
         Yields:
             Status lines.
@@ -45,6 +47,10 @@ class EmulatorDeployer:
 
         # adb remount
         yield from self._remount()
+
+        # Set SELinux permissive for testing
+        yield "Setting SELinux permissive..."
+        self._shell.run(["adb", "shell", "setenforce", "0"], timeout=10)
 
         # Stop VHAL service before pushing
         yield f"Stopping {config.VHAL_SERVICE_NAME}..."
@@ -70,17 +76,34 @@ class EmulatorDeployer:
                 all_ok = False
                 continue
 
-            # Set permissions for binaries (not json)
-            if not name.endswith(".json"):
+            # Set permissions for binaries (not json/so)
+            if not name.endswith((".json", ".so")):
                 self._shell.run(
                     ["adb", "shell", "chmod", "755", device_path], timeout=10
                 )
-                self._shell.run(
-                    ["adb", "shell", "chcon", config.SELINUX_CONTEXT, device_path],
-                    timeout=10,
-                )
 
             yield f"PASS {name}"
+
+        # Push generated DefaultProperties.json (with numeric propertyId fields).
+        # This is the generator's output, NOT the AOSP stock DefaultProperties.json.
+        dp_pushed = False
+        dp_local = None
+        if vhal_dir is not None:
+            dp_local = vhal_dir / "impl" / "bridge" / "DefaultProperties.json"
+        if dp_local and dp_local.is_file():
+            dp_device = f"{config.DEVICE_CONFIG_DIR}/DefaultProperties.json"
+            yield f"Pushing generated DefaultProperties.json → {dp_device}"
+            rc, _, stderr = self._shell.run(
+                ["adb", "push", str(dp_local), dp_device], timeout=15,
+            )
+            if rc != 0:
+                yield f"FAIL DefaultProperties.json push: {stderr.strip()}"
+                all_ok = False
+            else:
+                yield "PASS DefaultProperties.json"
+                dp_pushed = True
+        else:
+            yield "WARNING: Generated DefaultProperties.json not found — properties may not load"
 
         # Push updated VINTF manifest (V2 → V3) so framework accepts our binary
         if config.VINTF_MANIFEST_V3 and config.DEVICE_VINTF_MANIFEST_PATH:
@@ -111,7 +134,7 @@ class EmulatorDeployer:
         )
 
         # Brief wait for service to initialize
-        time.sleep(3)
+        time.sleep(5)
 
         # Verify service is running
         rc, stdout, _ = self._shell.run(

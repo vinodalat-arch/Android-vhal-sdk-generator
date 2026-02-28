@@ -189,7 +189,7 @@ class TestEmulatorDeployer:
         shell.set_response("adb remount", 0)
         shell.set_response("adb push", 0)
         shell.set_response("adb shell chmod", 0)
-        shell.set_response("adb shell chcon", 0)
+        shell.set_response("adb shell setenforce", 0)
         shell.set_response("adb shell stop", 0)
         shell.set_response("adb shell start", 0)
         shell.set_response("adb shell getprop", 0, stdout="running")
@@ -199,6 +199,7 @@ class TestEmulatorDeployer:
         lines = _collect(deployer.deploy(tmp_path))
         pass_lines = [l for l in lines if l.startswith("PASS")]
         # One PASS per pushed file + VINTF manifest + service running
+        # (DefaultProperties.json is deployed from vhal_dir, not artifact_dir)
         assert len(pass_lines) == len(config.DEVICE_PATHS) + 2
 
     def test_deploy_reports_missing_artifact(self, tmp_path: Path):
@@ -207,6 +208,7 @@ class TestEmulatorDeployer:
         shell.set_response("adb devices", 0, stdout="List of devices attached\nemulator-5554\tdevice\n")
         shell.set_response("adb root", 0, stdout="adbd is already running as root")
         shell.set_response("adb remount", 0)
+        shell.set_response("adb shell setenforce", 0)
         shell.set_response("adb shell stop", 0)
         shell.set_response("adb shell start", 0)
         shell.set_response("adb shell getprop", 0, stdout="running")
@@ -283,8 +285,13 @@ class TestPropertyVerifier:
 class TestConfig:
 
     def test_device_paths_cover_all_artifacts(self):
-        """Device paths should cover all non-metadata artifact files."""
-        binary_artifacts = [f for f in config.ARTIFACT_FILES if f != "build-info.json"]
+        """Device paths should cover all non-metadata artifact files.
+
+        DefaultProperties.json is excluded — it's deployed separately from the
+        generator output (not from the GCP build artifacts).
+        """
+        skip = {"build-info.json", "DefaultProperties.json"}
+        binary_artifacts = [f for f in config.ARTIFACT_FILES if f not in skip]
         for name in binary_artifacts:
             assert name in config.DEVICE_PATHS, f"{name} missing from DEVICE_PATHS"
 
