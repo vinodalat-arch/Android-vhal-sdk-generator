@@ -90,7 +90,7 @@ def _render_architecture_diagram(
   .l-vhal      {{ background: #1e2a1e; border-color: #3d6b3d; }}
   .l-bridge    {{ background: #2a1e1e; border-color: #6b3d3d; }}
   .l-sdk       {{ background: #2a2a1e; border-color: #6b6b3d; }}
-  .l-vsm       {{ background: #1e1e2a; border-color: #3d3d6b; }}
+  .l-vsm       {{ background: #1a2a2a; border-color: #2d8a7a; }}
   .highlighted {{
     border-color: #ff6b35 !important;
     background: #3a2210 !important;
@@ -142,20 +142,15 @@ def _render_architecture_diagram(
 
   <div class="layer l-vhal {_hl(hl_vhal_service)}" style="padding-bottom:14px;">
     <div class="layer-label">VHAL Service</div>
-    <div class="layer-sub">VehicleService.cpp (patched: Fake &rarr; Bridge)</div>
     {_tag(hl_vhal_service, "PATCHED", "tag-patched")}
     <div class="vhal-inner">
       <div class="component l-bridge {_hl(hl_bridge)}">
         <div class="layer-label">BridgeVehicleHardware</div>
-        <div class="layer-sub">IVehicleHardware impl</div>
-        <div class="layer-sub">get / set / subscribe</div>
         {_tag_inline(hl_bridge, "GENERATED", "tag-generated")}
       </div>
       <div style="display:flex;align-items:center;color:#888;font-size:20px;">&#x2194;</div>
       <div class="component l-bridge {_hl(hl_daemon)}">
         <div class="layer-label">FlyncDaemon</div>
-        <div class="layer-sub">Child process (fork+exec)</div>
-        <div class="layer-sub">IPC via socketpair</div>
         {_tag_inline(hl_daemon, "GENERATED", "tag-generated")}
       </div>
     </div>
@@ -167,11 +162,11 @@ def _render_architecture_diagram(
     {_tag(hl_sdk, "SHARED", "tag-shared")}
   </div>
 
-  <div class="eth-connector">&#x25BC; Ethernet (VLAN 11) &#x25BC;</div>
+  <div class="eth-connector">&#x25BC; Ethernet &#x25BC;</div>
 
   <div class="layer l-vsm">
     <div class="layer-label">Vehicle State Manager</div>
-    <div class="layer-sub">Hardware gateway connecting IVI over Ethernet to vehicle ECU network</div>
+    <div class="layer-sub">Hardware gateway connecting IVI to vehicle ECU network</div>
   </div>
 
 </div>
