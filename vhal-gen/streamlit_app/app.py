@@ -805,27 +805,50 @@ with tab_ivi:
 
     if emulator_clicked:
         with st.status("Checking emulator...", expanded=True) as status:
-            rc, stdout, stderr = runner.run(["emulator", "-list-avds"])
-            if rc != 0:
+            # Find emulator binary — check PATH first, then common SDK locations
+            import shutil
+            emu_bin = shutil.which("emulator")
+            if not emu_bin:
+                _sdk_search = [
+                    Path("/opt/homebrew/share/android-commandlinetools/emulator/emulator"),
+                    Path.home() / "Library/Android/sdk/emulator/emulator",
+                    Path(os.environ.get("ANDROID_HOME", "")) / "emulator/emulator",
+                    Path(os.environ.get("ANDROID_SDK_ROOT", "")) / "emulator/emulator",
+                ]
+                for p in _sdk_search:
+                    if p.is_file():
+                        emu_bin = str(p)
+                        break
+            if not emu_bin:
                 st.warning(
-                    "Emulator not found. Install Android SDK Emulator and ensure it is in your system PATH."
+                    "Emulator not found. Install Android SDK Emulator via "
+                    "`sdkmanager 'emulator'` or Android Studio."
                 )
                 status.update(label="Emulator not available", state="error")
             else:
-                avds = [l for l in stdout.strip().splitlines() if l.strip()]
-                if avds:
-                    st.write("Available AVDs:")
-                    for avd in avds:
-                        st.write(f"  - {avd}")
-                    st.info(
-                        "Start the automotive emulator with:\n\n"
-                        "```bash\n"
-                        f"emulator -avd {avds[0]} -writable-system\n"
-                        "```"
-                    )
+                rc, stdout, stderr = runner.run([emu_bin, "-list-avds"])
+                if rc != 0:
+                    st.warning(f"Emulator found at `{emu_bin}` but failed to list AVDs: {stderr.strip()}")
+                    status.update(label="Emulator error", state="error")
                 else:
-                    st.warning("No AVDs found. Create one with Android Studio AVD Manager.")
-                status.update(label="Emulator info", state="complete")
+                    avds = [l for l in stdout.strip().splitlines() if l.strip()]
+                    automotive_avds = [a for a in avds if "auto" in a.lower() or "aaos" in a.lower() or "car" in a.lower()]
+                    if avds:
+                        st.write(f"Found **{len(avds)}** AVD(s):")
+                        for avd in avds:
+                            tag = " *(automotive)*" if avd in automotive_avds else ""
+                            st.write(f"  - `{avd}`{tag}")
+                        # Pick automotive AVD first, then first available
+                        default_avd = automotive_avds[0] if automotive_avds else avds[0]
+                        st.info(
+                            "Start the automotive emulator with:\n\n"
+                            "```bash\n"
+                            f"{emu_bin} -avd {default_avd} -writable-system\n"
+                            "```"
+                        )
+                    else:
+                        st.warning("No AVDs found. Create one with Android Studio AVD Manager.")
+                    status.update(label=f"Emulator ready ({len(avds)} AVD{'s' if len(avds) != 1 else ''})", state="complete")
 
     if verify_clicked:
         with st.status("Verifying properties...", expanded=True) as status:
@@ -991,7 +1014,7 @@ with tab_ivi:
         st.warning(f"Instance status: {vm_status}")
 
     # --- Two Tabs: Incremental Build (default) vs Full Build ---
-    tab_incr, tab_full = st.tabs(["Incremental Build (GCP Instance)", "Full Build (GitHub Actions)"])
+    tab_incr, tab_full = st.tabs(["Incremental Build (GCP)", "Full Build (GCP)"])
 
     # -- Tab: Full Build --
     with tab_full:
