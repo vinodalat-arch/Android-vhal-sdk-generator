@@ -2,32 +2,33 @@
 
 from __future__ import annotations
 
-# GitHub Actions
+# Build
 WORKFLOW_FILE = "build-vhal.yml"
 DEFAULT_AOSP_TAG = "android-14.0.0_r75"
 DEFAULT_BUILD_TARGET = "sdk_car_x86_64-trunk_staging-userdebug"
+DEFAULT_LUNCH_TARGET = "sdk_car_x86_64-trunk_staging-userdebug"
 BUILD_TIMEOUT_SECONDS = 2 * 60 * 60  # 2 hours
 BUILD_POLL_INTERVAL_SECONDS = 30
 
+# VHAL binary name (matches Android.bp cc_binary in impl/vhal/)
+VHAL_SERVICE_BINARY = "android.hardware.automotive.vehicle@V3-emulator-service"
+
 # Artifact files expected from the build
 ARTIFACT_FILES = [
-    "android.hardware.automotive.vehicle@V3-default-service",
-    "flync-daemon",
-    "flync-DefaultProperties.json",
+    VHAL_SERVICE_BINARY,
+    "DefaultProperties.json",
     "build-info.json",
 ]
 
 # Device paths for adb push
 DEVICE_VHAL_SERVICE_DIR = "/vendor/bin/hw"
-DEVICE_DAEMON_DIR = "/vendor/bin"
-DEVICE_CONFIG_DIR = "/vendor/etc/automotive/vhal"
+DEVICE_CONFIG_DIR = "/vendor/etc/automotive/vhalconfig"
 
 DEVICE_PATHS = {
-    "android.hardware.automotive.vehicle@V3-default-service": (
-        f"{DEVICE_VHAL_SERVICE_DIR}/android.hardware.automotive.vehicle@V3-default-service"
+    VHAL_SERVICE_BINARY: (
+        f"{DEVICE_VHAL_SERVICE_DIR}/{VHAL_SERVICE_BINARY}"
     ),
-    "flync-daemon": f"{DEVICE_DAEMON_DIR}/flync-daemon",
-    "flync-DefaultProperties.json": (
+    "DefaultProperties.json": (
         f"{DEVICE_CONFIG_DIR}/DefaultProperties.json"
     ),
 }
@@ -51,11 +52,10 @@ GCP_REMOTE_BUILD_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl
 GCP_PRODUCT_OUT_PATH = "~/aosp/out/target/product/emulator_car64_x86_64"
 GCP_INCREMENTAL_BUILD_TIMEOUT = 20 * 60  # 20 minutes
 GCP_ARTIFACT_REMOTE_PATHS = {
-    "android.hardware.automotive.vehicle@V3-default-service": (
-        "vendor/bin/hw/android.hardware.automotive.vehicle@V3-default-service"
+    VHAL_SERVICE_BINARY: (
+        f"vendor/bin/hw/{VHAL_SERVICE_BINARY}"
     ),
-    "flync-daemon": "vendor/bin/flync-daemon",
-    "flync-DefaultProperties.json": (
-        "vendor/etc/automotive/vhal/DefaultProperties.json"
+    "DefaultProperties.json": (
+        "vendor/etc/automotive/vhalconfig/DefaultProperties.json"
     ),
 }

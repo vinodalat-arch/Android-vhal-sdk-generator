@@ -1034,11 +1034,14 @@ with tab_ivi:
                 help="Git branch or ref to build from.",
             )
 
+        _has_generated_code = st.session_state.get("code_generated", False)
         col_skip_gen, col_skip_build = st.columns(2)
         with col_skip_gen:
             deploy_skip_generate = st.checkbox(
                 "Skip Generate", key="deploy_skip_generate",
-                help="Skip code generation (use already-generated code).",
+                disabled=not _has_generated_code,
+                help="Skip code generation (use already-generated code)." if _has_generated_code
+                else "Generate code first (Step 3) before skipping.",
             )
         with col_skip_build:
             deploy_skip_build = st.checkbox(
@@ -1186,9 +1189,12 @@ with tab_ivi:
     with tab_incr:
         st.caption("Sync code to GCP instance, run incremental build (~5-15 min), and pull artifacts back.")
 
+        _has_generated_code_incr = st.session_state.get("code_generated", False)
         incr_skip_generate = st.checkbox(
             "Skip Generate", key="incr_skip_generate",
-            help="Skip code generation (use already-generated code).",
+            disabled=not _has_generated_code_incr,
+            help="Skip code generation (use already-generated code)." if _has_generated_code_incr
+            else "Generate code first (Step 3) before skipping.",
         )
 
         gcp_ready = st.session_state.get("gcp_ready", False)

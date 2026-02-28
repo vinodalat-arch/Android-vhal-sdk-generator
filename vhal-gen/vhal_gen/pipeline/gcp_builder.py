@@ -200,7 +200,7 @@ class GcpBuilder:
         yield "Running incremental build (mma) ..."
         build_script = (
             "cd ~/aosp && source build/envsetup.sh && "
-            "lunch sdk_car_x86_64-trunk_staging-userdebug && "
+            f"lunch {config.DEFAULT_LUNCH_TARGET} && "
             f"cd {config.GCP_REMOTE_BUILD_PATH} && "
             "mma -j$(nproc) 2>&1"
         )

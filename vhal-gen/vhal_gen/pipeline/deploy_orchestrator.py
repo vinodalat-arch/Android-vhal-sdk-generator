@@ -148,10 +148,10 @@ class DeployOrchestrator:
         yield ""
         yield "=== Stage 6: Verify Properties ==="
         props_path = self._artifacts.find_artifact_file(
-            artifact_dir, "flync-DefaultProperties.json"
+            artifact_dir, "DefaultProperties.json"
         )
         if props_path is None:
-            yield "ERROR: flync-DefaultProperties.json not found in artifacts"
+            yield "ERROR: DefaultProperties.json not found in artifacts"
             return
         yield from self._verifier.verify(props_path)
 
