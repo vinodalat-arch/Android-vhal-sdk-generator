@@ -44,3 +44,18 @@ ARTIFACT_DOWNLOAD_BACKOFF_SECONDS = 10
 
 # adb
 ADB_REBOOT_WAIT_SECONDS = 60
+
+# GCP Incremental Build
+GCP_REMOTE_VHAL_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/bridge"
+GCP_REMOTE_BUILD_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/vhal"
+GCP_PRODUCT_OUT_PATH = "~/aosp/out/target/product/emulator_car_x86_64"
+GCP_INCREMENTAL_BUILD_TIMEOUT = 20 * 60  # 20 minutes
+GCP_ARTIFACT_REMOTE_PATHS = {
+    "android.hardware.automotive.vehicle@V3-default-service": (
+        "vendor/bin/hw/android.hardware.automotive.vehicle@V3-default-service"
+    ),
+    "flync-daemon": "vendor/bin/flync-daemon",
+    "flync-DefaultProperties.json": (
+        "vendor/etc/automotive/vhal/flync-DefaultProperties.json"
+    ),
+}

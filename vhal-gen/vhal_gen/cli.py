@@ -307,6 +307,26 @@ def _echo_status_line(line: str) -> bool:
     default="android-14.0.0_r75",
     help="AOSP tag for the build.",
 )
+@click.option(
+    "--incremental",
+    is_flag=True,
+    help="Use incremental build on a GCP instance instead of GitHub Actions.",
+)
+@click.option(
+    "--gcp-instance",
+    default="",
+    help="GCP Compute Engine instance name (required with --incremental).",
+)
+@click.option(
+    "--gcp-zone",
+    default="us-central1-a",
+    help="GCP zone for the instance.",
+)
+@click.option(
+    "--gcp-project",
+    default=None,
+    help="GCP project ID (uses gcloud default if not set).",
+)
 def deploy_test(
     model_dir: str,
     vhal_dir: str,
@@ -316,8 +336,16 @@ def deploy_test(
     artifact_dir: str | None,
     git_ref: str,
     aosp_tag: str,
+    incremental: bool,
+    gcp_instance: str,
+    gcp_zone: str,
+    gcp_project: str | None,
 ):
     """Full GCP pipeline: build on AOSP, push to emulator, verify properties."""
+    if incremental and not gcp_instance:
+        click.echo(click.style("ERROR: --gcp-instance is required with --incremental", fg="red", bold=True))
+        sys.exit(1)
+
     from .pipeline.deploy_orchestrator import DeployOrchestrator
 
     orchestrator = DeployOrchestrator()
@@ -332,7 +360,48 @@ def deploy_test(
         artifact_dir=Path(artifact_dir) if artifact_dir else None,
         git_ref=git_ref,
         aosp_tag=aosp_tag,
+        incremental=incremental,
+        gcp_instance=gcp_instance,
+        gcp_zone=gcp_zone,
+        gcp_project=gcp_project,
     ):
+        if _echo_status_line(line):
+            has_fail = True
+
+    sys.exit(1 if has_fail else 0)
+
+
+@main.command("gcp-status")
+@click.option(
+    "--instance",
+    required=True,
+    help="GCP Compute Engine instance name.",
+)
+@click.option(
+    "--zone",
+    default="us-central1-a",
+    help="GCP zone for the instance.",
+)
+@click.option(
+    "--project",
+    default=None,
+    help="GCP project ID (uses gcloud default if not set).",
+)
+def gcp_status(instance: str, zone: str, project: str | None):
+    """Check GCP instance status for incremental builds."""
+    from .pipeline.gcp_builder import GcpBuilder
+
+    builder = GcpBuilder(
+        instance_name=instance, zone=zone, project=project,
+    )
+    has_fail = False
+    for line in builder.check_gcloud():
+        if _echo_status_line(line):
+            has_fail = True
+    if has_fail:
+        sys.exit(1)
+
+    for line in builder.check_instance():
         if _echo_status_line(line):
             has_fail = True
 

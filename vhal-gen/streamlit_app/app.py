@@ -15,6 +15,7 @@ from vhal_gen.classifier.signal_classifier import SignalClassifier
 from vhal_gen.fetcher.gerrit_fetcher import GerritFetcher
 from vhal_gen.generator.generator_engine import GeneratorEngine
 from vhal_gen.parser.model_loader import load_flync_model
+from vhal_gen.pipeline.deploy_orchestrator import DeployOrchestrator
 from vhal_gen.shell.runner import ShellRunner
 
 # ── Page config ──
@@ -196,7 +197,8 @@ st.sidebar.markdown(
     + _step_indicator(bool(st.session_state.get("mappings")), "Signals Classified")
     + _step_indicator(st.session_state.get("vhal_pulled", False), "VHAL Source Pulled")
     + _step_indicator(st.session_state.get("code_generated", False), "Code Generated")
-    + _step_indicator(st.session_state.get("verified", False), "Verified"),
+    + _step_indicator(st.session_state.get("verified", False), "Verified")
+    + _step_indicator(st.session_state.get("deploy_tested", False), "Deploy Tested"),
     unsafe_allow_html=True,
 )
 
@@ -443,44 +445,21 @@ with tab_ivi:
 
     runner = ShellRunner()
 
-    col_b, col_stub, col_d, col_e, col_v = st.columns(5)
+    # ── 4a. Local Verification ──
+    st.subheader("4a. Local Verification")
 
-    with col_b:
-        build_clicked = st.button("Build VHAL", use_container_width=True)
+    col_stub, col_e, col_v = st.columns(3)
+
     with col_stub:
         stub_clicked = st.button(
             "Compile Check (Stubs)",
             use_container_width=True,
             disabled=not st.session_state.get("code_generated", False),
         )
-    with col_d:
-        deploy_clicked = st.button("Deploy to Device", use_container_width=True)
     with col_e:
         emulator_clicked = st.button("Run Emulator", use_container_width=True)
     with col_v:
         verify_clicked = st.button("Verify Properties", use_container_width=True)
-
-    if build_clicked:
-        with st.status("Building VHAL...", expanded=True) as status:
-            # Check for AOSP tree
-            aosp_dir = st.session_state.get("vhal_path")
-            if not aosp_dir:
-                st.warning(
-                    "Not available — requires AOSP build environment. "
-                    "Pull VHAL source first, then set up a full AOSP tree for building."
-                )
-                status.update(label="Build skipped", state="error")
-            else:
-                st.info(
-                    "Build requires a full AOSP source tree with `source build/envsetup.sh` "
-                    "and `lunch` configured. Run the following in your AOSP tree:\n\n"
-                    "```bash\n"
-                    "source build/envsetup.sh\n"
-                    "lunch sdk_car_x86_64-userdebug\n"
-                    "m VehicleHal\n"
-                    "```"
-                )
-                status.update(label="See build instructions", state="complete")
 
     if stub_clicked:
         vhal_path = st.session_state.get("vhal_path")
@@ -552,34 +531,6 @@ with tab_ivi:
                 else:
                     status.update(label="Compile check passed", state="complete")
 
-    if deploy_clicked:
-        with st.status("Deploying to device...", expanded=True) as status:
-            # Check adb availability
-            rc, stdout, stderr = runner.run(["adb", "devices"])
-            if rc != 0:
-                st.warning(
-                    "Not available — `adb` not found. "
-                    "Install Android SDK Platform Tools and ensure `adb` is in PATH."
-                )
-                status.update(label="Deploy skipped", state="error")
-            else:
-                st.write("Connected devices:")
-                st.code(stdout)
-                vhal_path = st.session_state.get("vhal_path", "<vhal_root>")
-                st.info(
-                    "To deploy, build the VHAL tree in an AOSP environment:\n\n"
-                    "```bash\n"
-                    "source build/envsetup.sh\n"
-                    "lunch <your-automotive-target>\n"
-                    f"cd {vhal_path}/impl && mma\n"
-                    "adb root && adb remount\n"
-                    "adb push $OUT/vendor/bin/hw/android.hardware.automotive.vehicle@V*-default-service /vendor/bin/hw/\n"
-                    "adb shell stop vendor.vehicle.hal.default\n"
-                    "adb shell start vendor.vehicle.hal.default\n"
-                    "```"
-                )
-                status.update(label="See deploy instructions", state="complete")
-
     if emulator_clicked:
         with st.status("Checking emulator...", expanded=True) as status:
             rc, stdout, stderr = runner.run(["emulator", "-list-avds"])
@@ -640,3 +591,235 @@ with tab_ivi:
                     st.write(f"**{passed}/{len(results)}** properties found on device.")
 
                 status.update(label="Verification complete", state="complete")
+
+    # ── 4b. GCP Deploy Test ──
+    st.subheader("4b. GCP Deploy Test")
+
+    # --- GCP Instance Status Card ---
+    st.markdown("**GCP Instance Status**")
+    col_inst, col_zone, col_proj, col_check = st.columns([3, 2, 2, 1])
+    with col_inst:
+        gcp_instance_name = st.text_input(
+            "Instance Name", key="gcp_instance_name",
+            placeholder="aosp-builder-1",
+        )
+    with col_zone:
+        gcp_zone = st.text_input(
+            "Zone", key="gcp_zone", value="us-central1-a",
+        )
+    with col_proj:
+        gcp_project = st.text_input(
+            "Project (optional)", key="gcp_project",
+            placeholder="my-gcp-project",
+        )
+    with col_check:
+        st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+        check_status_clicked = st.button("Check Status")
+
+    if check_status_clicked:
+        if not gcp_instance_name:
+            st.error("Enter an instance name to check status.")
+        else:
+            from vhal_gen.pipeline.gcp_builder import GcpBuilder
+
+            gcp_builder = GcpBuilder(
+                instance_name=gcp_instance_name,
+                zone=gcp_zone,
+                project=gcp_project or None,
+            )
+            with st.status("Checking GCP instance...", expanded=True) as gcp_status:
+                gcp_ok = True
+                for line in gcp_builder.check_gcloud():
+                    if line.startswith("PASS"):
+                        st.write(f":white_check_mark: {line}")
+                    elif line.startswith("ERROR:"):
+                        st.error(line)
+                        gcp_ok = False
+
+                if gcp_ok:
+                    for line in gcp_builder.check_instance():
+                        if line.startswith("PASS"):
+                            st.write(f":white_check_mark: {line}")
+                        elif line.startswith("FAIL"):
+                            st.write(f":x: {line}")
+                            gcp_ok = False
+                        elif line.startswith("ERROR:"):
+                            st.error(line)
+                            gcp_ok = False
+
+                st.session_state["gcp_ready"] = gcp_ok
+                if gcp_ok:
+                    gcp_status.update(label="Instance ready", state="complete")
+                else:
+                    gcp_status.update(label="Instance not ready", state="error")
+
+    if st.session_state.get("gcp_ready") is True:
+        st.success("Instance Ready")
+    elif st.session_state.get("gcp_ready") is False:
+        st.error("Instance Not Ready")
+
+    # --- Two Tabs: Full Build vs Incremental Build ---
+    tab_full, tab_incr = st.tabs(["Full Build (GitHub Actions)", "Incremental Build (GCP Instance)"])
+
+    # -- Tab 1: Full Build --
+    with tab_full:
+        col_tag_dt, col_ref = st.columns(2)
+        with col_tag_dt:
+            deploy_aosp_tag = st.text_input(
+                "AOSP Tag",
+                value="android-14.0.0_r75",
+                key="deploy_aosp_tag",
+                help="AOSP tag used for the GCP build.",
+            )
+        with col_ref:
+            deploy_git_ref = st.text_input(
+                "Git Ref",
+                value="main",
+                key="deploy_git_ref",
+                help="Git branch or ref to build from.",
+            )
+
+        col_skip_gen, col_skip_build = st.columns(2)
+        with col_skip_gen:
+            deploy_skip_generate = st.checkbox(
+                "Skip Generate", key="deploy_skip_generate",
+                help="Skip code generation (use already-generated code).",
+            )
+        with col_skip_build:
+            deploy_skip_build = st.checkbox(
+                "Skip Build", key="deploy_skip_build",
+                help="Skip GCP build and use pre-built artifacts.",
+            )
+
+        deploy_artifact_dir = ""
+        if deploy_skip_build:
+            deploy_artifact_dir = st.text_input(
+                "Artifact Directory",
+                key="deploy_artifact_dir",
+                placeholder="/path/to/artifacts",
+                help="Path to pre-built artifacts (required when skipping build).",
+            )
+
+        deploy_full_clicked = st.button(
+            "Run Full Deploy Test", type="primary", use_container_width=True,
+        )
+
+    if deploy_full_clicked:
+        model_dir_val = st.session_state.get("model_dir", "")
+        vhal_path_val = st.session_state.get("vhal_path", "")
+
+        if not model_dir_val or not Path(model_dir_val).is_dir():
+            st.error("Model directory not set or not found. Load a model first.")
+        elif not vhal_path_val or not Path(vhal_path_val).is_dir():
+            st.error("VHAL source not found. Pull VHAL source first (Section 2).")
+        elif deploy_skip_build and not (deploy_artifact_dir and Path(deploy_artifact_dir).is_dir()):
+            st.error("Artifact directory is required when 'Skip Build' is checked.")
+        else:
+            sdk_dir_val = st.session_state.get("sdk_source_dir", "")
+            sdk_path_arg = Path(sdk_dir_val) if sdk_dir_val and Path(sdk_dir_val).is_dir() else None
+            artifact_path_arg = Path(deploy_artifact_dir) if deploy_artifact_dir else None
+
+            orchestrator = DeployOrchestrator()
+            with st.status("Running Full Deploy Test pipeline...", expanded=True) as status:
+                all_lines: list[str] = []
+                for line in orchestrator.run(
+                    model_dir=Path(model_dir_val),
+                    vhal_dir=Path(vhal_path_val),
+                    sdk_dir=sdk_path_arg,
+                    skip_generate=deploy_skip_generate,
+                    skip_build=deploy_skip_build,
+                    artifact_dir=artifact_path_arg,
+                    git_ref=deploy_git_ref,
+                    aosp_tag=deploy_aosp_tag,
+                ):
+                    all_lines.append(line)
+                    if line.startswith("PASS"):
+                        st.write(f":white_check_mark: {line}")
+                    elif line.startswith("FAIL"):
+                        st.write(f":x: {line}")
+                    elif line.startswith("ERROR:"):
+                        st.error(line)
+                    elif line.startswith("==="):
+                        st.markdown(f"**{line.strip('= ')}**")
+                    elif line.startswith("Checking") or line.startswith("Stage"):
+                        st.write(line)
+                    elif line.startswith("  "):
+                        st.code(line.strip(), language="text")
+                    elif line:
+                        st.write(line)
+
+                has_fail = any(l.startswith("FAIL") for l in all_lines)
+                has_error = any(l.startswith("ERROR:") for l in all_lines)
+                if has_fail or has_error:
+                    status.update(label="Deploy test failed", state="error")
+                else:
+                    st.session_state["deploy_tested"] = True
+                    status.update(label="Deploy test passed!", state="complete")
+
+    # -- Tab 2: Incremental Build --
+    with tab_incr:
+        st.caption("Sync code to GCP instance, run incremental mma (~5-15 min), pull artifacts back.")
+
+        incr_skip_generate = st.checkbox(
+            "Skip Generate", key="incr_skip_generate",
+            help="Skip code generation (use already-generated code).",
+        )
+
+        gcp_ready = st.session_state.get("gcp_ready", False)
+        deploy_incr_clicked = st.button(
+            "Run Incremental Deploy Test",
+            type="primary",
+            use_container_width=True,
+            disabled=not gcp_ready,
+        )
+        if not gcp_ready:
+            st.caption("Click 'Check Status' above to verify the GCP instance is running.")
+
+    if deploy_incr_clicked:
+        model_dir_val = st.session_state.get("model_dir", "")
+        vhal_path_val = st.session_state.get("vhal_path", "")
+
+        if not model_dir_val or not Path(model_dir_val).is_dir():
+            st.error("Model directory not set or not found. Load a model first.")
+        elif not vhal_path_val or not Path(vhal_path_val).is_dir():
+            st.error("VHAL source not found. Pull VHAL source first (Section 2).")
+        else:
+            sdk_dir_val = st.session_state.get("sdk_source_dir", "")
+            sdk_path_arg = Path(sdk_dir_val) if sdk_dir_val and Path(sdk_dir_val).is_dir() else None
+
+            orchestrator = DeployOrchestrator()
+            with st.status("Running Incremental Deploy Test...", expanded=True) as status:
+                all_lines: list[str] = []
+                for line in orchestrator.run(
+                    model_dir=Path(model_dir_val),
+                    vhal_dir=Path(vhal_path_val),
+                    sdk_dir=sdk_path_arg,
+                    skip_generate=incr_skip_generate,
+                    incremental=True,
+                    gcp_instance=gcp_instance_name,
+                    gcp_zone=gcp_zone,
+                    gcp_project=gcp_project or None,
+                ):
+                    all_lines.append(line)
+                    if line.startswith("PASS"):
+                        st.write(f":white_check_mark: {line}")
+                    elif line.startswith("FAIL"):
+                        st.write(f":x: {line}")
+                    elif line.startswith("ERROR:"):
+                        st.error(line)
+                    elif line.startswith("==="):
+                        st.markdown(f"**{line.strip('= ')}**")
+                    elif line.startswith("Checking") or line.startswith("Stage"):
+                        st.write(line)
+                    elif line.startswith("  "):
+                        st.code(line.strip(), language="text")
+                    elif line:
+                        st.write(line)
+
+                has_fail = any(l.startswith("FAIL") for l in all_lines)
+                has_error = any(l.startswith("ERROR:") for l in all_lines)
+                if has_fail or has_error:
+                    status.update(label="Incremental deploy test failed", state="error")
+                else:
+                    st.session_state["deploy_tested"] = True
+                    status.update(label="Incremental deploy test passed!", state="complete")

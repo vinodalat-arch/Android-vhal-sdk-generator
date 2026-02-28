@@ -38,6 +38,10 @@ class DeployOrchestrator:
         artifact_dir: Path | None = None,
         git_ref: str = "main",
         aosp_tag: str = config.DEFAULT_AOSP_TAG,
+        incremental: bool = False,
+        gcp_instance: str = "",
+        gcp_zone: str = "",
+        gcp_project: str | None = None,
     ) -> Iterator[str]:
         """Execute the deploy-test pipeline.
 
@@ -50,6 +54,10 @@ class DeployOrchestrator:
             artifact_dir: Path to pre-downloaded artifacts (required if skip_build).
             git_ref: Git ref to pass to the build workflow.
             aosp_tag: AOSP tag for the build.
+            incremental: Use incremental GCP instance build instead of GitHub Actions.
+            gcp_instance: GCP Compute Engine instance name (required if incremental).
+            gcp_zone: GCP zone (required if incremental).
+            gcp_project: GCP project ID (optional).
 
         Yields:
             Status lines suitable for CLI streaming.
@@ -61,8 +69,28 @@ class DeployOrchestrator:
         else:
             yield "=== Stage 1: Generate (skipped) ==="
 
-        # --- Stage 2: Git commit + push ---
-        if not skip_build:
+        # --- Stages 2–4: Build ---
+        if incremental:
+            # Incremental build on a pre-existing GCP instance
+            from .gcp_builder import GcpBuilder
+
+            if artifact_dir is None:
+                artifact_dir = Path("artifacts") / "incremental"
+            builder = GcpBuilder(
+                instance_name=gcp_instance,
+                zone=gcp_zone,
+                project=gcp_project,
+                shell=self._shell,
+            )
+            yield ""
+            for line in builder.build_incremental(
+                vhal_dir=vhal_dir, artifact_dir=artifact_dir,
+            ):
+                yield line
+                if line.startswith(("FAIL", "ERROR:")):
+                    yield "Pipeline aborted — incremental build failed."
+                    return
+        elif not skip_build:
             yield ""
             yield "=== Stage 2: Git Push ==="
             yield from self._stage_git_push()

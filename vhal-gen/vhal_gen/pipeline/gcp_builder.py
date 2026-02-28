@@ -1,0 +1,191 @@
+"""Incremental build on a pre-existing GCP Compute Engine instance."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Iterator
+
+from ..shell.runner import ShellRunner
+from . import config
+
+
+class GcpBuilder:
+    """Sync code to a GCP instance, run incremental mma, pull artifacts back."""
+
+    def __init__(
+        self,
+        *,
+        instance_name: str,
+        zone: str,
+        project: str | None = None,
+        shell: ShellRunner | None = None,
+    ) -> None:
+        self._instance = instance_name
+        self._zone = zone
+        self._project = project
+        self._shell = shell or ShellRunner()
+
+    # -- helpers --------------------------------------------------------
+
+    def _gcloud_base(self) -> list[str]:
+        """Return base gcloud args including --project if set."""
+        cmd = ["gcloud"]
+        if self._project:
+            cmd += ["--project", self._project]
+        return cmd
+
+    # -- public checks --------------------------------------------------
+
+    def check_gcloud(self) -> Iterator[str]:
+        """Verify gcloud CLI is installed and authenticated."""
+        rc, account, stderr = self._shell.run(
+            ["gcloud", "info", "--format=value(config.account)"], timeout=15,
+        )
+        if rc != 0:
+            yield f"ERROR: gcloud CLI not available — {stderr.strip()}"
+            return
+
+        rc2, project, _ = self._shell.run(
+            ["gcloud", "config", "get-value", "project"], timeout=15,
+        )
+        account = account.strip()
+        project = project.strip()
+        if not account:
+            yield "ERROR: gcloud not authenticated — run `gcloud auth login`"
+            return
+
+        yield f"PASS gcloud configured (account: {account}, project: {project})"
+
+    def check_instance(self) -> Iterator[str]:
+        """Verify the instance exists and is RUNNING."""
+        cmd = self._gcloud_base() + [
+            "compute", "instances", "describe", self._instance,
+            "--zone", self._zone, "--quiet", "--format=value(status)",
+        ]
+        rc, stdout, stderr = self._shell.run(cmd, timeout=15)
+        if rc != 0:
+            yield f"ERROR: Instance '{self._instance}' not found — {stderr.strip()}"
+            return
+
+        status = stdout.strip()
+        if status == "RUNNING":
+            yield f"PASS Instance '{self._instance}' is RUNNING"
+        else:
+            yield f"FAIL Instance '{self._instance}' is {status} (expected RUNNING)"
+
+    # -- internal pipeline steps ----------------------------------------
+
+    def _sync_code(self, vhal_dir: Path) -> Iterator[str]:
+        """SCP generated code to the instance."""
+        yield f"Syncing code from {vhal_dir} ..."
+        cmd = self._gcloud_base() + [
+            "compute", "scp", "--recurse",
+            f"{vhal_dir}/",
+            f"{self._instance}:{config.GCP_REMOTE_VHAL_PATH}/",
+            "--zone", self._zone, "--quiet",
+        ]
+        rc, _, stderr = self._shell.run(
+            cmd, timeout=config.GCP_INCREMENTAL_BUILD_TIMEOUT,
+        )
+        if rc != 0:
+            yield f"ERROR: SCP upload failed — {stderr.strip()}"
+            return
+        yield "PASS Code synced to instance"
+
+    def _run_build(self) -> Iterator[str]:
+        """SSH into the instance and run incremental mma."""
+        yield "Running incremental build (mma) ..."
+        build_script = (
+            "cd ~/aosp && source build/envsetup.sh && "
+            "lunch sdk_car_x86_64-userdebug && "
+            f"cd {config.GCP_REMOTE_BUILD_PATH} && "
+            "mma -j$(nproc) 2>&1"
+        )
+        cmd = self._gcloud_base() + [
+            "compute", "ssh", self._instance,
+            "--zone", self._zone, "--quiet", "--",
+            "bash", "-lc", build_script,
+        ]
+        last_line = ""
+        for line in self._shell.run_streaming(cmd):
+            yield f"  {line}"
+            last_line = line
+
+        if "Exit code:" in last_line:
+            yield "FAIL Incremental build failed"
+        else:
+            yield "PASS Incremental build succeeded"
+
+    def _pull_artifacts(self, artifact_dir: Path) -> Iterator[str]:
+        """SCP the 3 build artifacts back to the local machine."""
+        yield f"Pulling artifacts to {artifact_dir} ..."
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+
+        for name, rel_path in config.GCP_ARTIFACT_REMOTE_PATHS.items():
+            remote = f"{self._instance}:{config.GCP_PRODUCT_OUT_PATH}/{rel_path}"
+            local = artifact_dir / name
+            cmd = self._gcloud_base() + [
+                "compute", "scp",
+                remote, str(local),
+                "--zone", self._zone, "--quiet",
+            ]
+            rc, _, stderr = self._shell.run(cmd, timeout=120)
+            if rc != 0:
+                yield f"FAIL Failed to pull {name} — {stderr.strip()}"
+                return
+            yield f"PASS Pulled {name}"
+
+        yield "PASS All artifacts pulled"
+
+    def _write_build_info(self, artifact_dir: Path) -> None:
+        """Write a local build-info.json for the incremental build."""
+        info = {
+            "build_type": "incremental",
+            "instance": self._instance,
+            "zone": self._zone,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        (artifact_dir / "build-info.json").write_text(
+            json.dumps(info, indent=2) + "\n"
+        )
+
+    # -- main pipeline --------------------------------------------------
+
+    def build_incremental(
+        self, *, vhal_dir: Path, artifact_dir: Path,
+    ) -> Iterator[str]:
+        """Full incremental pipeline: check → sync → build → pull."""
+        yield "=== Stage 2: Check GCP Instance ==="
+        for line in self.check_gcloud():
+            yield line
+            if line.startswith("ERROR:"):
+                return
+
+        for line in self.check_instance():
+            yield line
+            if line.startswith(("FAIL", "ERROR:")):
+                return
+
+        yield ""
+        yield "=== Stage 3: Sync & Build (Incremental) ==="
+        for line in self._sync_code(vhal_dir):
+            yield line
+            if line.startswith("ERROR:"):
+                return
+
+        for line in self._run_build():
+            yield line
+            if line.startswith("FAIL"):
+                return
+
+        yield ""
+        yield "=== Stage 4: Pull Artifacts ==="
+        for line in self._pull_artifacts(artifact_dir):
+            yield line
+            if line.startswith("FAIL"):
+                return
+
+        self._write_build_info(artifact_dir)
+        yield "PASS build-info.json written"
