@@ -17,16 +17,20 @@ Vehicle Network (UDP)
 └──────────────┬───────────────────────────┘
                |  calls get_*/set_*
 ┌──────────────────────────────────────────┐
-│  FlyncDaemon (generated)                 │
+│  FlyncDaemon (child process of VHAL)     │
+│  - Spawned via fork()+exec() by Bridge   │
+│  - Communicates over socketpair (STDIN)  │
 │  - Polls SDK get_*() for RX signals      │
 │  - Calls SDK set_*() for TX signals      │
 │  - Sends PROPERTY_CHANGED to bridge      │
 │  - Handles GET/SET from bridge           │
 └──────────────┬───────────────────────────┘
-               |  IPC socket
+               |  socketpair IPC
 ┌──────────────────────────────────────────┐
 │  BridgeVehicleHardware (generated)       │
 │  - IVehicleHardware implementation       │
+│  - Spawns daemon as child process        │
+│  - Watchdog: auto-respawns on crash      │
 │  - Android CarService consumes this      │
 └──────────────────────────────────────────┘
 ```
@@ -39,7 +43,9 @@ modifications to the stock VHAL source:
 - **VehicleService.cpp** — modified to use BridgeVehicleHardware instead of FakeVehicleHardware
 - **vhal/Android.bp** — updated to link BridgeVehicleHardware and libjsoncpp
 
-No manual copy or patch steps are needed — the VHAL tree is ready to build.
+The daemon is spawned as a child process of the VHAL service. No separate init
+service or `.rc` file is needed — all modifications are contained within the
+VHAL module.
 
 ## Prerequisites
 
@@ -72,12 +78,11 @@ adb push $OUT/vendor/bin/hw/android.hardware.automotive.vehicle@V*-default-servi
 adb push $OUT/vendor/bin/flync-daemon /vendor/bin/
 adb push $OUT/vendor/etc/automotive/vhal/DefaultProperties.json \
          /vendor/etc/automotive/vhal/
-adb push $OUT/vendor/etc/init/flync-daemon.rc /vendor/etc/init/
 
 # Set SELinux permissive for initial testing
 adb shell setenforce 0
 
-# Restart VHAL
+# Restart VHAL (daemon is auto-spawned as a child process)
 adb shell stop vehicle_hal_server 2>/dev/null; adb shell stop vendor.vehicle.hal.default
 adb shell start vendor.vehicle.hal.default
 ```
@@ -88,7 +93,7 @@ adb shell start vendor.vehicle.hal.default
 # Check VHAL service is running with bridge
 adb logcat -s BridgeVHAL:* VehicleService:*
 
-# Check daemon is running
+# Check daemon is running (spawned as child of VHAL)
 adb logcat -s FlyncDaemon:*
 
 # Check properties are registered

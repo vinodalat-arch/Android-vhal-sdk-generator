@@ -106,7 +106,6 @@ class GeneratorEngine:
             ("FlyncDaemon.h.j2", bridge_dir / "FlyncDaemon.h"),
             ("FlyncDaemon.cpp.j2", bridge_dir / "FlyncDaemon.cpp"),
             ("Android.bp.j2", bridge_dir / "Android.bp"),
-            ("flync-daemon.rc.j2", bridge_dir / "flync-daemon.rc"),
             ("INTEGRATION.md.j2", bridge_dir / "INTEGRATION.md"),
             ("VhalTestActivity.java.j2", test_dir / "VhalTestActivity.java"),
             ("AndroidManifest.xml.j2", test_dir / "AndroidManifest.xml"),

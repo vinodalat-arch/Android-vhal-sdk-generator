@@ -29,7 +29,7 @@ cc_library {
 }
 
 // Standalone daemon -- calls Vehicle Body SDK get_*() / set_*() functions.
-// Started by init via flync-daemon.rc at boot.
+// Spawned as a child process of the VHAL service via fork()+exec().
 cc_binary {
     name: "flync-daemon",
     vendor: true,
@@ -57,9 +57,6 @@ cc_binary {
         "-Wall",
         "-Werror",
         "-Wno-unused-parameter",
-    ],
-    init_rc: [
-        "flync-daemon.rc",
     ],
 }
 

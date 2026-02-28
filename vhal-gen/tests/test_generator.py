@@ -156,7 +156,7 @@ def test_all_files_generated():
     """Verify all expected output files are generated in impl/bridge/."""
     tmpdir, vhal_root, generated = _generate_into_mock_tree()
     try:
-        assert len(generated) == 12
+        assert len(generated) == 11
         filenames = {f.name for f in generated}
         assert "DefaultProperties.json" in filenames
         assert "VendorProperties.h" in filenames
@@ -166,10 +166,11 @@ def test_all_files_generated():
         assert "FlyncDaemon.h" in filenames
         assert "FlyncDaemon.cpp" in filenames
         assert "Android.bp" in filenames
-        assert "flync-daemon.rc" in filenames
         assert "INTEGRATION.md" in filenames
         assert "VhalTestActivity.java" in filenames
         assert "AndroidManifest.xml" in filenames
+        # rc file should NOT be generated (daemon is child process)
+        assert "flync-daemon.rc" not in filenames
         # Patch file should NOT be generated
         assert "VehicleService.cpp.patch" not in filenames
         # Transport files should NOT be present
@@ -190,8 +191,8 @@ def test_all_files_generated_with_sdk():
         return  # Skip if SDK not available
     tmpdir, vhal_root, generated = _generate_into_mock_tree(sdk_source_dir=SDK_DIR)
     try:
-        # 12 generated + up to 12 SDK files (some may not exist)
-        assert len(generated) >= 12
+        # 11 generated + up to 12 SDK files (some may not exist)
+        assert len(generated) >= 11
         filenames = {f.name for f in generated}
         assert "Read_App_Signal_Data.h" in filenames
         assert "Write_App_Signal_Data.h" in filenames
@@ -385,6 +386,13 @@ def test_bridge_aosp_compatibility():
         assert "sdk/app/swc/Read_App_Signal_Data.cpp" in bp
         assert "UdpTransport" not in bp
         assert "MockTransport" not in bp
+        assert "init_rc" not in bp, "Daemon is child process, no init_rc needed"
+
+        # Check BridgeVehicleHardware.cpp uses socketpair/fork/exec
+        assert "socketpair" in cpp
+        assert "fork()" in cpp
+        assert "execl" in cpp
+        assert "prctl" in cpp
 
         # Check integration guide is generated
         guide = (bridge_dir / "INTEGRATION.md").read_text()

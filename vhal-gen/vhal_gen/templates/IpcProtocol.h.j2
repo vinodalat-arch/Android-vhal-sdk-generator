@@ -34,6 +34,5 @@ struct __attribute__((packed)) IpcMessage {
 };
 
 constexpr size_t IPC_HEADER_SIZE = offsetof(IpcMessage, value);
-constexpr const char* BRIDGE_SOCKET_PATH = "/dev/socket/flync-bridge";
 
 }  // namespace flync

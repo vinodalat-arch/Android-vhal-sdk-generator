@@ -116,7 +116,7 @@ def test_full_pipeline():
         vhal_root = _build_mock_vhal_tree(tmpdir)
         engine = GeneratorEngine(mappings=mappings, model=model)
         generated = engine.generate(vhal_root=vhal_root)
-        assert len(generated) == 12
+        assert len(generated) == 11
 
         bridge_dir = vhal_root / "impl" / "bridge"
 
@@ -146,10 +146,25 @@ def test_full_pipeline():
         assert "extractBits" not in daemon_cpp
         assert "packBits" not in daemon_cpp
 
-        # Verify daemon rc (no --mock flag)
-        rc = (bridge_dir / "flync-daemon.rc").read_text()
-        assert "flync-daemon" in rc
-        assert "--mock" not in rc
+        # Verify no rc file generated (daemon is child process)
+        assert not (bridge_dir / "flync-daemon.rc").exists()
+
+        # Verify FlyncDaemon reads FD from STDIN (child process pattern)
+        assert "STDIN_FILENO" in daemon_cpp
+        # No connect retry loop
+        assert "connectToBridge" not in daemon_cpp
+        assert "BRIDGE_SOCKET_PATH" not in daemon_cpp
+
+        # Verify BridgeVehicleHardware uses socketpair/fork/exec
+        bridge_cpp = (bridge_dir / "BridgeVehicleHardware.cpp").read_text()
+        assert "socketpair" in bridge_cpp
+        assert "fork()" in bridge_cpp
+        assert "execl" in bridge_cpp
+        assert "prctl" in bridge_cpp
+        assert "startSocketServer" not in bridge_cpp
+
+        # Verify Android.bp has no init_rc
+        assert "init_rc" not in bp
 
         # Verify VehicleService.cpp was patched in-place
         vs = (vhal_root / "impl" / "vhal" / "src" / "VehicleService.cpp").read_text()

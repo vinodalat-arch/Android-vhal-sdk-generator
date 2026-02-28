@@ -12,8 +12,6 @@
 #include "Write_App_Signal_Data.h"
 
 #include <android-base/logging.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -81,7 +79,7 @@ void writeTxSignal(size_t idx, int32_t value) {
 // Construction / destruction
 // ---------------------------------------------------------------------------
 
-FlyncDaemon::FlyncDaemon() {}
+FlyncDaemon::FlyncDaemon(int bridgeFd) : mBridgeFd(bridgeFd) {}
 
 FlyncDaemon::~FlyncDaemon() {
     stop();
@@ -92,9 +90,8 @@ FlyncDaemon::~FlyncDaemon() {
 // ---------------------------------------------------------------------------
 
 bool FlyncDaemon::start() {
-    connectToBridge();
     if (mBridgeFd < 0) {
-        LOG(ERROR) << LOG_TAG << ": Cannot connect to bridge socket";
+        LOG(ERROR) << LOG_TAG << ": Invalid bridge FD";
         return false;
     }
 
@@ -127,37 +124,6 @@ void FlyncDaemon::run() {
     while (mRunning) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
-}
-
-// ---------------------------------------------------------------------------
-// Bridge socket connection
-// ---------------------------------------------------------------------------
-
-void FlyncDaemon::connectToBridge() {
-    mBridgeFd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (mBridgeFd < 0) {
-        LOG(ERROR) << LOG_TAG << ": socket() failed: " << strerror(errno);
-        return;
-    }
-
-    struct sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, BRIDGE_SOCKET_PATH, sizeof(addr.sun_path) - 1);
-
-    // Retry connection up to 30 times (bridge may not be ready yet).
-    for (int attempt = 0; attempt < 30; ++attempt) {
-        if (connect(mBridgeFd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == 0) {
-            LOG(INFO) << LOG_TAG << ": Connected to bridge socket";
-            return;
-        }
-        LOG(WARNING) << LOG_TAG << ": connect() attempt " << (attempt + 1)
-                     << " failed: " << strerror(errno) << " -- retrying";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-
-    LOG(ERROR) << LOG_TAG << ": Could not connect to bridge after 30 attempts";
-    close(mBridgeFd);
-    mBridgeFd = -1;
 }
 
 // ---------------------------------------------------------------------------
@@ -418,9 +384,12 @@ void FlyncDaemon::sendPropertyChanged(const SignalBinding& sig, int32_t value) {
 int main(int argc, char* argv[]) {
     android::base::InitLogging(argv, android::base::LogdLogger());
 
-    LOG(INFO) << "FlyncDaemon: Starting (SDK mode)";
+    LOG(INFO) << "FlyncDaemon: Starting (SDK mode, child process)";
 
-    flync::FlyncDaemon daemon;
+    // BridgeVehicleHardware passes the socketpair FD via dup2() to STDIN.
+    int bridgeFd = STDIN_FILENO;
+
+    flync::FlyncDaemon daemon(bridgeFd);
     if (!daemon.start()) {
         LOG(ERROR) << "FlyncDaemon: Failed to start";
         return 1;

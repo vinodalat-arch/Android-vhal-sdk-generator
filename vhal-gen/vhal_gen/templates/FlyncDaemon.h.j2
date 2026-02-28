@@ -37,7 +37,7 @@ struct SignalBinding {
 
 class FlyncDaemon {
   public:
-    FlyncDaemon();
+    explicit FlyncDaemon(int bridgeFd);
     ~FlyncDaemon();
 
     bool start();
@@ -45,7 +45,6 @@ class FlyncDaemon {
     void run();  // blocks until stopped
 
   private:
-    void connectToBridge();
     void rxPollLoop();
     void bridgeRxLoop();
     void handleBridgeMessage(const IpcMessage* msg, size_t totalLen);
