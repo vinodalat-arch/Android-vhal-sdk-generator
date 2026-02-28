@@ -36,6 +36,24 @@ SDK_FILE_MAP: dict[str, str] = {
     "app/swc/Write_App_Signal_Data.cpp": "sdk/app/swc/Write_App_Signal_Data.cpp",
 }
 
+# SDK directories to copy recursively (transport layer + iceoryx2 headers).
+# Keys are source-relative directory paths, values are destination-relative
+# paths under bridge/.
+SDK_DIR_MAP: dict[str, str] = {
+    # mw-fdnrouter: UDP transport, routing, configuration
+    "mw-fdnrouter/include": "sdk/mw-fdnrouter/include",
+    "mw-fdnrouter/src": "sdk/mw-fdnrouter/src",
+    # m2s: message-to-signal layer
+    "m2s/include": "sdk/m2s/include",
+    "m2s/src": "sdk/m2s/src",
+    # s2m: signal-to-message layer
+    "s2m/include": "sdk/s2m/include",
+    "s2m/src": "sdk/s2m/src",
+    # iceoryx / iceoryx2 headers (IPC pub/sub used by transport layer)
+    "publish_subscribe/rootfs/include/iceoryx": "sdk/publish_subscribe/include/iceoryx",
+    "publish_subscribe/rootfs/include/iceoryx2": "sdk/publish_subscribe/include/iceoryx2",
+}
+
 
 class GeneratorEngine:
     """Generates all output files from FLYNC model and signal mappings."""
@@ -103,12 +121,14 @@ class GeneratorEngine:
             ("IpcProtocol.h.j2", bridge_dir / "IpcProtocol.h"),
             ("BridgeVehicleHardware.h.j2", bridge_dir / "BridgeVehicleHardware.h"),
             ("BridgeVehicleHardware.cpp.j2", bridge_dir / "BridgeVehicleHardware.cpp"),
-            ("FlyncDaemon.h.j2", bridge_dir / "FlyncDaemon.h"),
-            ("FlyncDaemon.cpp.j2", bridge_dir / "FlyncDaemon.cpp"),
+            ("VehicleDaemon.h.j2", bridge_dir / "VehicleDaemon.h"),
+            ("VehicleDaemon.cpp.j2", bridge_dir / "VehicleDaemon.cpp"),
             ("Android.bp.j2", bridge_dir / "Android.bp"),
             ("INTEGRATION.md.j2", bridge_dir / "INTEGRATION.md"),
             ("VhalTestActivity.java.j2", test_dir / "VhalTestActivity.java"),
             ("AndroidManifest.xml.j2", test_dir / "AndroidManifest.xml"),
+            ("privapp-permissions-vhaltest.xml.j2", bridge_dir / "privapp-permissions-vhaltest.xml"),
+            ("iceoryx2_stubs.cpp.j2", bridge_dir / "iceoryx2_stubs.cpp"),
         ]
 
         for template_name, output_path in file_map:
@@ -225,14 +245,15 @@ class GeneratorEngine:
                 block,
             )
 
-        # 5. Add required for DefaultProperties.json and flync-daemon
-        if '"flync-DefaultProperties.json"' not in block:
-            block = re.sub(
-                r'(shared_libs:\s*\[[^\]]*\],)',
-                r'\1\n    required: ["flync-DefaultProperties.json", "flync-daemon"],',
-                block,
-                flags=re.DOTALL,
-            )
+        # 5. Add required for DefaultProperties.json and vehicle-daemon
+        # First remove any existing required: line (from previous runs)
+        block = re.sub(r'\s*required:\s*\[[^\]]*\],?\n?', '\n', block)
+        block = re.sub(
+            r'(shared_libs:\s*\[[^\]]*\],)',
+            r'\1\n    required: ["vehicle-DefaultProperties.json", "vehicle-daemon", "VhalTestApp"],',
+            block,
+            flags=re.DOTALL,
+        )
 
         content = before + block + after
 
@@ -270,12 +291,17 @@ class GeneratorEngine:
     def _copy_sdk_files(self, bridge_dir: Path) -> list[Path]:
         """Copy Vehicle Body SDK files into the bridge directory.
 
+        Copies individual files from SDK_FILE_MAP and entire directories
+        from SDK_DIR_MAP (transport layer, iceoryx2 headers).
+
         After copying, applies AOSP build compatibility patches (e.g.
         initializing variables to avoid -Werror,-Wsometimes-uninitialized).
 
         Returns list of copied file paths.
         """
         copied = []
+
+        # 1. Copy individual files
         for src_rel, dst_rel in SDK_FILE_MAP.items():
             src_path = self.sdk_source_dir / src_rel
             dst_path = bridge_dir / dst_rel
@@ -288,6 +314,26 @@ class GeneratorEngine:
             shutil.copy2(src_path, dst_path)
             copied.append(dst_path)
             logger.info("Copied SDK: %s -> %s", src_path, dst_path)
+
+        # 2. Copy directories recursively (transport layer + iceoryx2)
+        for src_rel, dst_rel in SDK_DIR_MAP.items():
+            src_dir = self.sdk_source_dir / src_rel
+            dst_dir = bridge_dir / dst_rel
+
+            if not src_dir.exists():
+                logger.warning("SDK directory not found: %s", src_dir)
+                continue
+
+            if dst_dir.exists():
+                shutil.rmtree(dst_dir)
+            shutil.copytree(src_dir, dst_dir)
+
+            dir_files = [f for f in dst_dir.rglob("*") if f.is_file()]
+            copied.extend(dir_files)
+            logger.info(
+                "Copied SDK dir: %s -> %s (%d files)",
+                src_dir, dst_dir, len(dir_files),
+            )
 
         # Apply AOSP build compatibility patches to copied SDK files.
         self._patch_sdk_for_aosp(bridge_dir)
@@ -314,6 +360,24 @@ class GeneratorEngine:
             if content != original:
                 com_utils.write_text(content)
                 logger.info("Patched SDK: com_utils.cpp (initialized idx)")
+
+        # Fix: clang requires 'template' keyword for dependent name
+        # lhs.target<void>() -> lhs.template target<void>()
+        s2m_header = bridge_dir / "sdk" / "s2m" / "include" / "signal_to_message.h"
+        if s2m_header.exists():
+            content = s2m_header.read_text()
+            original = content
+            content = content.replace(
+                "lhs.target<void>()",
+                "lhs.template target<void>()",
+            )
+            content = content.replace(
+                "rhs.target<void>()",
+                "rhs.template target<void>()",
+            )
+            if content != original:
+                s2m_header.write_text(content)
+                logger.info("Patched SDK: signal_to_message.h (template keyword)")
 
     def _deduplicate_mappings(self) -> list[PropertyMapping]:
         """Return a deduplicated copy of mappings by (property_id, area_id).

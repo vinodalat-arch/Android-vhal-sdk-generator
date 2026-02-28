@@ -116,7 +116,7 @@ def test_full_pipeline():
         vhal_root = _build_mock_vhal_tree(tmpdir)
         engine = GeneratorEngine(mappings=mappings, model=model)
         generated = engine.generate(vhal_root=vhal_root)
-        assert len(generated) == 11
+        assert len(generated) == 13
 
         bridge_dir = vhal_root / "impl" / "bridge"
 
@@ -134,22 +134,22 @@ def test_full_pipeline():
         # Verify bridge Android.bp has bridge lib, daemon, and SDK sources
         bp = (bridge_dir / "Android.bp").read_text()
         assert "BridgeVehicleHardware" in bp
-        assert "flync-daemon" in bp
+        assert "vehicle-daemon" in bp
         assert "@V1" not in bp  # No version-specific references
         assert "sdk/com/src/ComConfig.cpp" in bp
         assert "sdk/app/swc/Read_App_Signal_Data.cpp" in bp
 
         # Verify daemon uses SDK includes
-        daemon_cpp = (bridge_dir / "FlyncDaemon.cpp").read_text()
+        daemon_cpp = (bridge_dir / "VehicleDaemon.cpp").read_text()
         assert "Read_App_Signal_Data.h" in daemon_cpp
         assert "Write_App_Signal_Data.h" in daemon_cpp
         assert "extractBits" not in daemon_cpp
         assert "packBits" not in daemon_cpp
 
         # Verify no rc file generated (daemon is child process)
-        assert not (bridge_dir / "flync-daemon.rc").exists()
+        assert not (bridge_dir / "vehicle-daemon.rc").exists()
 
-        # Verify FlyncDaemon reads FD from STDIN (child process pattern)
+        # Verify VehicleDaemon reads FD from STDIN (child process pattern)
         assert "STDIN_FILENO" in daemon_cpp
         # No connect retry loop
         assert "connectToBridge" not in daemon_cpp

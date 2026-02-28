@@ -1,12 +1,12 @@
 """Stub-based compile checker for generated VHAL bridge code.
 
 Runs ``clang++ -fsyntax-only`` against **all** .cpp/.cc files under the
-bridge directory — generated bridge code, the FlyncDaemon, and the full
+bridge directory — generated bridge code, the VehicleDaemon, and the full
 Vehicle Body SDK reference code (com, can_io, app/swc).
 
 **Mandatory requirement**: The compile check MUST cover the entire daemon
 codebase — both the generated bridge files (BridgeVehicleHardware.cpp,
-FlyncDaemon.cpp) AND all SDK reference source files (ComConfig, CanConfig,
+VehicleDaemon.cpp) AND all SDK reference source files (ComConfig, CanConfig,
 com_utils, iodata, Read/Write_App_Signal_Data).  When SDK files are not
 copied into ``bridge/sdk/`` (i.e. ``generate`` was run without ``--sdk-dir``),
 they are discovered from the original SDK source directory passed via
@@ -136,7 +136,7 @@ class StubBuilder:
         """Run clang++ -fsyntax-only on each .cpp/.cc file under bridge/.
 
         Checks all source files: generated bridge code (BridgeVehicleHardware,
-        FlyncDaemon) and the full Vehicle Body SDK reference code (com_utils,
+        VehicleDaemon) and the full Vehicle Body SDK reference code (com_utils,
         ComConfig, CanConfig, iodata, Read/Write_App_Signal_Data).
 
         Args:
@@ -164,7 +164,7 @@ class StubBuilder:
         has_sdk = sdk_in_bridge.is_dir() or (sdk_dir and sdk_dir.is_dir())
         if not has_sdk:
             yield ("WARNING: SDK files not found in bridge/sdk/ and no "
-                   "--sdk-dir provided. FlyncDaemon.cpp will likely fail "
+                   "--sdk-dir provided. VehicleDaemon.cpp will likely fail "
                    "(missing Read_App_Signal_Data.h).")
 
         sources = self._discover_sources(bridge_dir, sdk_dir=sdk_dir)

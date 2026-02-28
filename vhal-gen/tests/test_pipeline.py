@@ -154,13 +154,13 @@ class TestArtifactManager:
     def test_find_artifact_file_nested(self, tmp_path: Path):
         nested = tmp_path / "vhal-build-42"
         nested.mkdir()
-        (nested / "flync-daemon").write_text("binary")
+        (nested / "vehicle-daemon").write_text("binary")
 
         shell = FakeShellRunner()
         mgr = ArtifactManager(shell)
-        result = mgr.find_artifact_file(tmp_path, "flync-daemon")
+        result = mgr.find_artifact_file(tmp_path, "vehicle-daemon")
         assert result is not None
-        assert result.name == "flync-daemon"
+        assert result.name == "vehicle-daemon"
 
 
 # ---------------------------------------------------------------------------

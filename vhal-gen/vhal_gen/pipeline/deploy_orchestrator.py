@@ -155,6 +155,38 @@ class DeployOrchestrator:
             return
         yield from self._verifier.verify(props_path)
 
+        # --- Stage 7: Install and launch test app (optional) ---
+        yield ""
+        yield "=== Stage 7: Test App ==="
+        apk_path = self._artifacts.find_artifact_file(
+            artifact_dir, "VhalTestApp.apk"
+        )
+        if apk_path is not None:
+            yield "Installing VhalTestApp..."
+            rc, _, stderr = self._shell.run(
+                ["adb", "shell", "mkdir", "-p",
+                 "/system/priv-app/VhalTestApp"],
+                timeout=5,
+            )
+            rc, _, stderr = self._shell.run(
+                ["adb", "push", str(apk_path),
+                 "/system/priv-app/VhalTestApp/VhalTestApp.apk"],
+                timeout=30,
+            )
+            if rc != 0:
+                yield f"WARNING: Failed to push test APK: {stderr.strip()}"
+            else:
+                yield "PASS VhalTestApp installed"
+                yield "Launching VhalTestActivity..."
+                self._shell.run(
+                    ["adb", "shell", "am", "start", "-n",
+                     config.TEST_APP_ACTIVITY],
+                    timeout=10,
+                )
+                yield f"PASS Test app launched ({config.TEST_APP_PACKAGE})"
+        else:
+            yield "SKIP VhalTestApp.apk not found in artifacts (app not built)"
+
     def _stage_generate(
         self, model_dir: Path, vhal_dir: Path, sdk_dir: Path | None
     ) -> Iterator[str]:

@@ -23,7 +23,7 @@ DEVICE_VHAL_SERVICE_NAME_EMU = "vendor.vehicle-hal-emulator"
 ARTIFACT_FILES = [
     VHAL_SERVICE_BINARY,
     "DefaultProperties.json",
-    "flync-daemon",
+    "vehicle-daemon",
     "DefaultVehicleHal.so",
     "build-info.json",
 ]
@@ -39,9 +39,14 @@ DEVICE_PATHS = {
     VHAL_SERVICE_BINARY: (
         f"{DEVICE_VHAL_SERVICE_DIR}/{DEVICE_VHAL_BINARY_NAME}"
     ),
-    "flync-daemon": "/vendor/bin/flync-daemon",
+    "vehicle-daemon": "/vendor/bin/vehicle-daemon",
     "DefaultVehicleHal.so": "/vendor/lib64/DefaultVehicleHal.so",
+    "VhalTestApp.apk": "/system/priv-app/VhalTestApp/VhalTestApp.apk",
 }
+
+# Test app package and activity for launch after deploy
+TEST_APP_PACKAGE = "com.vehicle.vhaltest"
+TEST_APP_ACTIVITY = "com.vehicle.vhaltest/.VhalTestActivity"
 
 # VINTF manifest to push — upgrades the stock V2 declaration to V3
 # so the framework accepts our V3 VHAL service.
@@ -78,6 +83,7 @@ GCP_ARTIFACT_REMOTE_PATHS = {
     VHAL_SERVICE_BINARY: (
         f"vendor/bin/hw/{VHAL_SERVICE_BINARY}"
     ),
-    "flync-daemon": "vendor/bin/flync-daemon",
+    "vehicle-daemon": "vendor/bin/vehicle-daemon",
     "DefaultVehicleHal.so": "vendor/lib64/DefaultVehicleHal.so",
+    "VhalTestApp.apk": "system/priv-app/VhalTestApp/VhalTestApp.apk",
 }

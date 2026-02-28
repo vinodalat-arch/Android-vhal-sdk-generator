@@ -161,7 +161,7 @@ def _render_architecture_diagram(
       </div>
       <div style="display:flex;align-items:center;color:#888;font-size:20px;">&#x2194;</div>
       <div class="component l-bridge {_hl(hl_daemon)}">
-        <div class="layer-label">FlyncDaemon</div>
+        <div class="layer-label">VehicleDaemon</div>
         {_tag_inline(hl_daemon, "GENERATED", "tag-generated")}
       </div>
     </div>

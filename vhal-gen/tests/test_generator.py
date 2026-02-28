@@ -156,21 +156,21 @@ def test_all_files_generated():
     """Verify all expected output files are generated in impl/bridge/."""
     tmpdir, vhal_root, generated = _generate_into_mock_tree()
     try:
-        assert len(generated) == 11
+        assert len(generated) == 13
         filenames = {f.name for f in generated}
         assert "DefaultProperties.json" in filenames
         assert "VendorProperties.h" in filenames
         assert "IpcProtocol.h" in filenames
         assert "BridgeVehicleHardware.h" in filenames
         assert "BridgeVehicleHardware.cpp" in filenames
-        assert "FlyncDaemon.h" in filenames
-        assert "FlyncDaemon.cpp" in filenames
+        assert "VehicleDaemon.h" in filenames
+        assert "VehicleDaemon.cpp" in filenames
         assert "Android.bp" in filenames
         assert "INTEGRATION.md" in filenames
         assert "VhalTestActivity.java" in filenames
         assert "AndroidManifest.xml" in filenames
         # rc file should NOT be generated (daemon is child process)
-        assert "flync-daemon.rc" not in filenames
+        assert "vehicle-daemon.rc" not in filenames
         # Patch file should NOT be generated
         assert "VehicleService.cpp.patch" not in filenames
         # Transport files should NOT be present
@@ -248,9 +248,9 @@ def test_vhal_android_bp_modified():
         # libjsoncpp should be added to cc_binary shared_libs
         assert '"libjsoncpp"' in content
 
-        # required for DefaultProperties.json and flync-daemon
-        assert '"flync-DefaultProperties.json"' in content
-        assert '"flync-daemon"' in content
+        # required for DefaultProperties.json and vehicle-daemon
+        assert '"vehicle-DefaultProperties.json"' in content
+        assert '"vehicle-daemon"' in content
 
         # Original binary name should be preserved
         assert "android.hardware.automotive.vehicle@V1-default-service" in content
@@ -263,7 +263,7 @@ def test_vhal_android_bp_modified():
         cc_lib_end = cc_lib_section.index("\n}\n") + 3
         cc_lib_block = cc_lib_section[:cc_lib_end]
         assert '"libjsoncpp"' not in cc_lib_block, "cc_library should not have libjsoncpp"
-        assert "flync-DefaultProperties" not in cc_lib_block, "cc_library should not have required"
+        assert "vehicle-DefaultProperties" not in cc_lib_block, "cc_library should not have required"
 
         # --- cc_fuzz block should be UNTOUCHED ---
         cc_fuzz_start = content.index("cc_fuzz {")
@@ -318,10 +318,10 @@ def test_vendor_properties_header():
 
 
 def test_daemon_cpp_has_sdk_includes():
-    """Verify FlyncDaemon.cpp includes SDK headers and uses SDK calls."""
+    """Verify VehicleDaemon.cpp includes SDK headers and uses SDK calls."""
     tmpdir, vhal_root, _ = _generate_into_mock_tree()
     try:
-        daemon_path = vhal_root / "impl" / "bridge" / "FlyncDaemon.cpp"
+        daemon_path = vhal_root / "impl" / "bridge" / "VehicleDaemon.cpp"
         content = daemon_path.read_text()
         assert "Read_App_Signal_Data.h" in content
         assert "Write_App_Signal_Data.h" in content
@@ -337,10 +337,10 @@ def test_daemon_cpp_has_sdk_includes():
 
 
 def test_daemon_h_has_signal_binding():
-    """Verify FlyncDaemon.h uses SignalBinding instead of SignalDescriptor."""
+    """Verify VehicleDaemon.h uses SignalBinding instead of SignalDescriptor."""
     tmpdir, vhal_root, _ = _generate_into_mock_tree()
     try:
-        header_path = vhal_root / "impl" / "bridge" / "FlyncDaemon.h"
+        header_path = vhal_root / "impl" / "bridge" / "VehicleDaemon.h"
         content = header_path.read_text()
         assert "SignalBinding" in content
         assert "SignalDescriptor" not in content
@@ -377,7 +377,7 @@ def test_bridge_aosp_compatibility():
         bp = (bridge_dir / "Android.bp").read_text()
         assert 'default_applicable_licenses' in bp, "Missing package {} block"
         assert "BridgeVehicleHardware" in bp
-        assert "flync-daemon" in bp
+        assert "vehicle-daemon" in bp
         assert "prebuilt_etc" in bp
         assert "VehicleHalDefaults" in bp
         assert "@V1" not in bp, "Should not hardcode AIDL version"
