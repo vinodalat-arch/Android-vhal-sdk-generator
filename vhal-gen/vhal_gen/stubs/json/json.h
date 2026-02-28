@@ -31,6 +31,7 @@ class Value {
     // Accessors
     std::string asString() const { return {}; }
     int asInt() const { return 0; }
+    long long asInt64() const { return 0; }
     float asFloat() const { return 0.0f; }
     double asDouble() const { return 0.0; }
     bool asBool() const { return false; }

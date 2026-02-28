@@ -1,6 +1,7 @@
 """KPIT Vehicle Platform Builder — single-page Streamlit UI."""
 
 import io
+import os
 import sys
 import zipfile
 from pathlib import Path
