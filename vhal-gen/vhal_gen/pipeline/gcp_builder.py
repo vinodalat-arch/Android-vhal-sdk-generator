@@ -56,7 +56,7 @@ class GcpBuilder:
             yield "ERROR: gcloud not authenticated — run `gcloud auth login`"
             return
 
-        yield f"PASS gcloud configured (account: {account}, project: {project})"
+        yield f"PASS gcloud configured (project: {project})"
 
     def check_instance(self) -> Iterator[str]:
         """Verify the instance exists and is RUNNING."""
@@ -222,7 +222,7 @@ class GcpBuilder:
 
     def _run_build(self) -> Iterator[str]:
         """SSH into the instance and run incremental mma."""
-        yield "Running incremental build (mma) ..."
+        yield "Running VHAL build (mma) ..."
         build_script = (
             "cd ~/aosp && source build/envsetup.sh && "
             f"lunch {config.DEFAULT_LUNCH_TARGET} && "
@@ -231,8 +231,8 @@ class GcpBuilder:
         )
         cmd = self._gcloud_base() + [
             "compute", "ssh", self._instance,
-            "--zone", self._zone, "--quiet", "--",
-            "bash", "-lc", build_script,
+            "--zone", self._zone, "--quiet",
+            f"--command={build_script}",
         ]
         last_line = ""
         for line in self._shell.run_streaming(cmd):
@@ -240,9 +240,9 @@ class GcpBuilder:
             last_line = line
 
         if "Exit code:" in last_line:
-            yield "FAIL Incremental build failed"
+            yield "FAIL VHAL build failed"
         else:
-            yield "PASS Incremental build succeeded"
+            yield "PASS VHAL build succeeded"
 
     def _pull_artifacts(self, artifact_dir: Path) -> Iterator[str]:
         """SCP the 3 build artifacts back to the local machine."""

@@ -64,7 +64,7 @@ class TestCheckGcloud:
         builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
 
         lines = _collect(builder.check_gcloud())
-        assert any("PASS" in l and "user@example.com" in l for l in lines)
+        assert any("PASS" in l and "my-project" in l for l in lines)
 
     def test_gcloud_not_authenticated(self):
         shell = FakeShellRunner()

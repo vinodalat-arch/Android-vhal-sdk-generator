@@ -88,7 +88,7 @@ class DeployOrchestrator:
             ):
                 yield line
                 if line.startswith(("FAIL", "ERROR:")):
-                    yield "Pipeline aborted — incremental build failed."
+                    yield "Pipeline aborted — VHAL build failed."
                     return
         elif not skip_build:
             yield ""
