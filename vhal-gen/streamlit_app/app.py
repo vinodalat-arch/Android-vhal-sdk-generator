@@ -462,9 +462,12 @@ with tab_ivi:
     with col_tag:
         tag = st.selectbox("Tag", options=tag_options, index=0)
 
+    # Store for auto-pull in Generate section
+    st.session_state["vhal_tag"] = tag
+    st.session_state["gerrit_url"] = gerrit_url
+
     if st.button("Pull VHAL Source", type="primary"):
         fetcher = GerritFetcher()
-        # Allow custom Gerrit URL
         fetcher.GERRIT_URL = gerrit_url
         target_dir = Path(st.session_state.get("project_base", ".")) / "output"
         with st.status("Pulling VHAL source...", expanded=True) as status:
@@ -513,24 +516,50 @@ with tab_ivi:
 
     if not st.session_state.get("model_loaded"):
         st.warning("Load a model first to generate code.")
-    elif not st.session_state.get("vhal_pulled"):
-        st.warning("Pull VHAL source first (Section 2) before generating.")
     else:
         model = st.session_state["model"]
         mappings = st.session_state["mappings"]
-        vhal_path = st.session_state["vhal_path"]
         sdk_dir = st.session_state.get("sdk_source_dir", "")
 
+        vhal_path = st.session_state.get("vhal_path", "")
         st.markdown(
             f"**Mappings:** {len(mappings)} signals · "
             f"**SDK:** {sdk_dir or 'not set'} · "
-            f"**VHAL tree:** {vhal_path}"
+            f"**VHAL tree:** {vhal_path or 'will auto-pull'}"
         )
 
         if st.button("Generate", type="primary"):
+            # Auto-pull VHAL source if not already pulled
+            if not st.session_state.get("vhal_pulled") or not vhal_path:
+                tag = st.session_state.get("vhal_tag", "android-14.0.0_r75")
+                gerrit_url = st.session_state.get(
+                    "gerrit_url",
+                    "https://android.googlesource.com/platform/hardware/interfaces",
+                )
+                target_dir = Path(st.session_state.get("project_base", ".")) / "output"
+                fetcher = GerritFetcher()
+                fetcher.GERRIT_URL = gerrit_url
+                with st.status("Auto-pulling VHAL source...", expanded=True) as pull_st:
+                    for line in fetcher.fetch_vhal(target_dir, tag=tag):
+                        if line.startswith("DONE:"):
+                            vhal_path = line[5:]
+                            st.session_state["vhal_pulled"] = True
+                            st.session_state["vhal_path"] = vhal_path
+                        elif line.startswith("ERROR:"):
+                            st.error(line)
+                        else:
+                            st.write(line)
+                    if vhal_path:
+                        pull_st.update(label="VHAL source ready!", state="complete")
+                    else:
+                        pull_st.update(label="VHAL pull failed", state="error")
+
+                if not vhal_path:
+                    st.stop()
+
             vhal_root = Path(vhal_path)
             if not vhal_root.exists():
-                st.error(f"VHAL directory not found: {vhal_root}. Pull VHAL source first.")
+                st.error(f"VHAL directory not found: {vhal_root}")
             else:
                 sdk_path = Path(sdk_dir) if sdk_dir and Path(sdk_dir).exists() else None
                 try:
