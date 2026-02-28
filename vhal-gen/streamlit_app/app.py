@@ -862,44 +862,45 @@ with tab_ivi:
 
                 status.update(label="Verification complete", state="complete")
 
-    # ── 4b. GCP Deploy Test ──
-    st.subheader("4b. GCP Deploy Test")
+    # ── 4b. Deploy Test ──
+    st.subheader("4b. Deploy Test")
 
-    # --- GCP Instance Status Card ---
-    st.markdown("**GCP Instance Status**")
-    col_inst, col_zone, col_proj = st.columns([3, 2, 2])
-    with col_inst:
-        gcp_instance_name = st.text_input(
-            "Instance Name", key="gcp_instance_name",
-            placeholder="aosp-builder",
-        )
-    with col_zone:
-        gcp_zone = st.text_input(
-            "Zone", key="gcp_zone", value="us-central1-a",
-        )
-    with col_proj:
-        gcp_project = st.text_input(
-            "Project (optional)", key="gcp_project",
-            placeholder="my-gcp-project",
-        )
+    # --- GCP Instance Config (collapsed by default) ---
+    with st.expander("GCP Build Instance", expanded=False):
+        col_inst, col_zone, col_proj = st.columns([3, 2, 2])
+        with col_inst:
+            gcp_instance_name = st.text_input(
+                "Instance Name", key="gcp_instance_name",
+                placeholder="aosp-builder",
+                help="Name of the GCP Compute Engine VM with an AOSP build environment.",
+            )
+        with col_zone:
+            gcp_zone = st.text_input(
+                "Zone", key="gcp_zone", value="us-central1-a",
+            )
+        with col_proj:
+            gcp_project = st.text_input(
+                "Project (optional)", key="gcp_project",
+                placeholder="my-gcp-project",
+            )
 
-    col_check, col_start, col_stop = st.columns(3)
-    with col_check:
-        check_status_clicked = st.button(
-            "Check Status", use_container_width=True,
-            disabled=not gcp_instance_name,
-        )
-    with col_start:
-        start_clicked = st.button(
-            "Start Instance", use_container_width=True,
-            disabled=not gcp_instance_name,
-        )
-    with col_stop:
-        stop_clicked = st.button(
-            "Stop Instance", use_container_width=True,
-            disabled=not gcp_instance_name,
-            help="Stop the VM to save compute cost. Storage charges still apply while the disk exists.",
-        )
+        col_check, col_start, col_stop = st.columns(3)
+        with col_check:
+            check_status_clicked = st.button(
+                "Check Status", use_container_width=True,
+                disabled=not gcp_instance_name,
+            )
+        with col_start:
+            start_clicked = st.button(
+                "Start Instance", use_container_width=True,
+                disabled=not gcp_instance_name,
+            )
+        with col_stop:
+            stop_clicked = st.button(
+                "Stop Instance", use_container_width=True,
+                disabled=not gcp_instance_name,
+                help="Stop the VM to save compute cost. Storage charges still apply while the disk exists.",
+            )
 
     def _make_gcp_builder():
         from vhal_gen.pipeline.gcp_builder import GcpBuilder
@@ -989,10 +990,10 @@ with tab_ivi:
     elif vm_status is not None:
         st.warning(f"Instance status: {vm_status}")
 
-    # --- Two Tabs: Full Build vs Incremental Build ---
-    tab_full, tab_incr = st.tabs(["Full Build (GitHub Actions)", "Incremental Build (GCP Instance)"])
+    # --- Two Tabs: Incremental Build (default) vs Full Build ---
+    tab_incr, tab_full = st.tabs(["Incremental Build (GCP Instance)", "Full Build (GitHub Actions)"])
 
-    # -- Tab 1: Full Build --
+    # -- Tab: Full Build --
     with tab_full:
         col_tag_dt, col_ref = st.columns(2)
         with col_tag_dt:
@@ -1019,6 +1020,7 @@ with tab_ivi:
         with col_skip_build:
             deploy_skip_build = st.checkbox(
                 "Skip Build", key="deploy_skip_build",
+                value=True,
                 help="Skip GCP build and use pre-built artifacts.",
             )
 
@@ -1157,7 +1159,7 @@ with tab_ivi:
                     st.session_state["vhal_pushed"] = True
                     status.update(label="VHAL source pushed!", state="complete")
 
-    # -- Tab 2: Incremental Build --
+    # -- Tab: Incremental Build (default) --
     with tab_incr:
         st.caption("Sync code to GCP instance, run incremental build (~5-15 min), and pull artifacts back.")
 
