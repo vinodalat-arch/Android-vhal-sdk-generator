@@ -379,6 +379,18 @@ if project_base != _prev_base:
         st.session_state["model_dir"] = ""
         st.session_state["sdk_source_dir"] = ""
 
+# ── Output Directory ──
+_DEFAULT_OUTPUT_DIR = str(Path.home() / "kpit-vhal-output")
+st.sidebar.subheader("Output Directory")
+output_dir = _folder_picker(
+    "Output path", "output_dir",
+    placeholder=_DEFAULT_OUTPUT_DIR, container=st.sidebar,
+)
+if not output_dir:
+    output_dir = _DEFAULT_OUTPUT_DIR
+    st.session_state["output_dir"] = output_dir
+st.sidebar.caption(f"VHAL source will be pulled to: `{output_dir}`")
+
 # ── YAML Model Input ──
 st.sidebar.subheader("YAML Model")
 model_dir = _folder_picker(
@@ -565,7 +577,7 @@ with tab_ivi:
     if st.button("Pull VHAL Source", type="primary"):
         fetcher = GerritFetcher()
         fetcher.GERRIT_URL = gerrit_url
-        target_dir = Path(st.session_state.get("project_base", ".")) / "output"
+        target_dir = Path(st.session_state.get("output_dir", _DEFAULT_OUTPUT_DIR))
         with st.status("Pulling VHAL source...", expanded=True) as status:
             vhal_path = None
             for line in fetcher.fetch_vhal(target_dir, tag=tag):
@@ -632,7 +644,7 @@ with tab_ivi:
                     "gerrit_url",
                     "https://android.googlesource.com/platform/hardware/interfaces",
                 )
-                target_dir = Path(st.session_state.get("project_base", ".")) / "output"
+                target_dir = Path(st.session_state.get("output_dir", _DEFAULT_OUTPUT_DIR))
                 fetcher = GerritFetcher()
                 fetcher.GERRIT_URL = gerrit_url
                 with st.status("Auto-pulling VHAL source...", expanded=True) as pull_st:
