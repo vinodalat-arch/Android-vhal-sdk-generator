@@ -209,7 +209,7 @@ st.markdown(f"""
     .workflow-step {{ padding: 4px 0; font-size: 0.9rem; }}
     .step-done {{ color: {KPIT_GREEN}; }}
     .step-active {{ color: #ffc107; }}
-    .step-pending {{ color: #6c757d; }}
+    .step-pending {{ color: #dc3545; }}
     div[data-testid="stMetric"] {{ text-align: center; }}
 
     /* KPIT green primary buttons */
@@ -431,7 +431,7 @@ st.sidebar.subheader("Workflow Progress")
 def _step_indicator(done: bool, label: str) -> str:
     if done:
         return f'<div class="workflow-step step-done">● {label}</div>'
-    return f'<div class="workflow-step step-pending">○ {label}</div>'
+    return f'<div class="workflow-step step-pending">● {label}</div>'
 
 
 st.sidebar.markdown(
@@ -440,7 +440,9 @@ st.sidebar.markdown(
     + _step_indicator(st.session_state.get("vhal_pulled", False), "VHAL Source Pulled")
     + _step_indicator(st.session_state.get("code_generated", False), "Code Generated")
     + _step_indicator(st.session_state.get("verified", False), "Verified")
-    + _step_indicator(st.session_state.get("deploy_tested", False), "Deploy Tested"),
+    + _step_indicator(st.session_state.get("deploy_tested", False), "Deploy Tested")
+    + _step_indicator(st.session_state.get("vhal_committed", False), "VHAL Committed")
+    + _step_indicator(st.session_state.get("vhal_pushed", False), "VHAL Pushed"),
     unsafe_allow_html=True,
 )
 
@@ -1172,6 +1174,7 @@ with tab_ivi:
                     status.update(label="Push failed", state="error")
                 else:
                     st.write(f":white_check_mark: {out.strip() or 'Pushed to remote'}")
+                    st.session_state["vhal_pushed"] = True
                     status.update(label="VHAL source pushed!", state="complete")
 
     # -- Tab 2: Incremental Build --
