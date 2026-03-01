@@ -375,7 +375,7 @@ if not output_dir:
 # ── YAML Model Input ──
 st.sidebar.subheader("YAML Model")
 model_dir = _folder_picker(
-    "FLYNC Model Directory", "model_dir",
+    "Vehicle Model Directory", "model_dir",
     placeholder="/path/to/flync-model-dev-2", container=st.sidebar,
 )
 
@@ -677,16 +677,37 @@ with tab_ivi:
                 blink=should_blink,
             ))
 
-            # Download ZIP of bridge directory
-            zip_buf = io.BytesIO()
-            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                for f in generated:
+            # Split generated files into SDK vs Test App
+            test_app_names = {"VhalTestActivity.java", "AndroidManifest.xml",
+                              "privapp-permissions-vhaltest.xml"}
+            sdk_files = [f for f in generated if f.name not in test_app_names]
+            test_files = [f for f in generated if f.name in test_app_names]
+
+            dl_col1, dl_col2 = st.columns(2)
+
+            # Download Vehicle SDK
+            sdk_buf = io.BytesIO()
+            with zipfile.ZipFile(sdk_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for f in sdk_files:
                     zf.write(f, f.relative_to(bridge_dir.parent))
-            zip_buf.seek(0)
-            st.download_button(
-                "Download ZIP",
-                data=zip_buf.getvalue(),
-                file_name="ivi-package.zip",
+            sdk_buf.seek(0)
+            dl_col1.download_button(
+                "Download Vehicle SDK",
+                data=sdk_buf.getvalue(),
+                file_name="vehicle-sdk.zip",
+                mime="application/zip",
+            )
+
+            # Download Test App
+            test_buf = io.BytesIO()
+            with zipfile.ZipFile(test_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for f in test_files:
+                    zf.write(f, f.relative_to(bridge_dir.parent))
+            test_buf.seek(0)
+            dl_col2.download_button(
+                "Download Test App",
+                data=test_buf.getvalue(),
+                file_name="vehicle-test-app.zip",
                 mime="application/zip",
             )
 
