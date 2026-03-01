@@ -428,14 +428,12 @@ def _step_indicator(done: bool, label: str) -> str:
 
 
 st.sidebar.markdown(
-    _step_indicator(st.session_state.get("model_loaded", False), "Model Loaded")
-    + _step_indicator(bool(st.session_state.get("mappings")), "Signals Classified")
-    + _step_indicator(st.session_state.get("vhal_pulled", False), "VHAL Source Pulled")
-    + _step_indicator(st.session_state.get("code_generated", False), "Code Generated")
-    + _step_indicator(st.session_state.get("verified", False), "Verified")
-    + _step_indicator(st.session_state.get("deploy_tested", False), "VHAL Deployed")
-    + _step_indicator(st.session_state.get("vhal_committed", False), "VHAL Committed")
-    + _step_indicator(st.session_state.get("vhal_pushed", False), "VHAL Pushed"),
+    _step_indicator(st.session_state.get("model_loaded", False), "1. Model Loaded")
+    + _step_indicator(bool(st.session_state.get("mappings")), "2. Signals Classified")
+    + _step_indicator(st.session_state.get("vhal_pulled", False), "3. VHAL Source Pulled")
+    + _step_indicator(st.session_state.get("code_generated", False), "4. Code Generated")
+    + _step_indicator(st.session_state.get("compile_checked", False), "5. Compile Check")
+    + _step_indicator(st.session_state.get("deploy_tested", False), "6. Built & Deployed"),
     unsafe_allow_html=True,
 )
 
@@ -824,6 +822,7 @@ with tab_ivi:
                     status.update(label="Compile check failed", state="error")
                 else:
                     status.update(label="Compile check passed", state="complete")
+                    st.session_state["compile_checked"] = True
 
     if emulator_clicked:
         with st.status("Checking emulator...", expanded=True) as status:
