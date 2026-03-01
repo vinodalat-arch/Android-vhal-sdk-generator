@@ -61,8 +61,7 @@ sudo apt-get install -y -qq \
     clang \
     openjdk-17-jdk-headless \
     wget unzip curl \
-    qemu-kvm libvirt-daemon-system \
-    adb
+    qemu-kvm libvirt-daemon-system
 
 # KVM access for emulator
 if [ ! -w /dev/kvm ] 2>/dev/null; then
@@ -124,19 +123,20 @@ yes | sdkmanager --licenses >/dev/null 2>&1 || true
 
 # Install required packages
 info "Installing Android SDK packages (this may take a few minutes)..."
+SYSTEM_IMAGE="system-images;android-34-ext9;android-automotive;x86_64"
+
 sdkmanager --install \
     "platform-tools" \
     "emulator" \
-    "platforms;android-34" \
-    "system-images;android-34;android-automotive;x86_64"
+    "platforms;android-34-ext9" \
+    "$SYSTEM_IMAGE"
 
 # Create AVD if not exists
 if ! avdmanager list avd 2>/dev/null | grep -q "Name: automotive"; then
     info "Creating automotive AVD..."
     echo "no" | avdmanager create avd \
         -n automotive \
-        -k "system-images;android-34;android-automotive;x86_64" \
-        -d "automotive_1024p_landscape" \
+        -k "$SYSTEM_IMAGE" \
         --force
     info "AVD 'automotive' created."
 else
@@ -156,6 +156,19 @@ else
     info "Cloning repo to $INSTALL_DIR..."
     git clone "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR/vhal-gen"
+fi
+
+# Extract Vehicle Body SDK from reference archive
+if [ ! -d "$INSTALL_DIR/performance-stack-Body-lighting-Draft" ]; then
+    if [ -f "$INSTALL_DIR/reference/vehicle-body-sdk.tar.gz" ]; then
+        info "Extracting Vehicle Body SDK..."
+        tar xzf "$INSTALL_DIR/reference/vehicle-body-sdk.tar.gz" -C "$INSTALL_DIR"
+        info "SDK extracted to $INSTALL_DIR/performance-stack-Body-lighting-Draft/src/"
+    else
+        warn "Vehicle Body SDK archive not found at reference/vehicle-body-sdk.tar.gz"
+    fi
+else
+    info "Vehicle Body SDK already extracted."
 fi
 
 if [ ! -d ".venv" ]; then
@@ -192,19 +205,14 @@ fi
 step "Step 6: GCP Build Target Check"
 
 if [ "$ARCH" = "x86_64" ]; then
-    warn "This laptop is x86_64 but GCP currently builds ARM64 binaries."
-    warn "The GCP lunch target must be changed for x86_64 emulator compatibility."
+    warn "This laptop is x86_64. GCP may currently have ARM64 build artifacts."
     warn ""
-    warn "One-time GCP setup required:"
-    warn "  1. SSH to GCP:  gcloud compute ssh aosp-builder --zone=us-central1-a"
-    warn "  2. Run:         cd /aosp && source build/envsetup.sh"
-    warn "  3. Run:         lunch sdk_car_x86_64-trunk_staging-userdebug"
-    warn "  4. First build: m -j\$(nproc)  (this takes ~2-4 hours the first time)"
+    warn "vhal-gen auto-detects architecture — no config changes needed."
+    warn "On first deploy-test from this laptop, vhal-gen will set the GCP"
+    warn "lunch target to sdk_car_x86_64-trunk_staging-userdebug automatically."
     warn ""
-    warn "After that, update vhal-gen config in:"
-    warn "  $INSTALL_DIR/vhal-gen/vhal_gen/pipeline/config.py"
-    warn "  Change DEFAULT_LUNCH_TARGET to: sdk_car_x86_64-trunk_staging-userdebug"
-    warn "  Change GCP_PRODUCT_OUT_PATH to: ~/aosp/out/target/product/emulator_car_x86_64"
+    warn "The FIRST x86_64 build on GCP will take ~2-4 hours (full m build)."
+    warn "Subsequent incremental builds will be fast (~3 min) as usual."
 else
     info "ARM64 laptop — matches current GCP build target. No changes needed."
 fi
@@ -244,6 +252,6 @@ echo "     .venv/bin/python -m vhal_gen generate --help"
 echo ""
 
 if [ "$ARCH" = "x86_64" ]; then
-    echo -e "  ${YELLOW}6. IMPORTANT: Switch GCP to x86_64 (see Step 6 warnings above)${NC}"
+    echo -e "  ${YELLOW}6. NOTE: First GCP build for x86_64 will take ~2-4 hours (see Step 6 above)${NC}"
     echo ""
 fi

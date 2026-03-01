@@ -23,6 +23,7 @@ Thumbs.db
 
 # Archives
 *.zip
+!reference/*.tar.gz
 
 # Streamlit
 .streamlit/
