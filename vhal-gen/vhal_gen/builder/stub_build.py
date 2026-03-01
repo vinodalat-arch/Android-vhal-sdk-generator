@@ -66,7 +66,12 @@ class StubBuilder:
         for ext in ("*.cpp", "*.cc"):
             sources.extend(bridge_dir.rglob(ext))
         # Exclude test-apk directory (Java/Android test code, not compilable)
-        sources = [s for s in sources if "test-apk" not in s.parts]
+        # Exclude mw-fdnrouter main.cc (standalone router binary, not part of daemon)
+        sources = [
+            s for s in sources
+            if "test-apk" not in s.parts
+            and not (s.name == "main.cc" and "mw-fdnrouter" in s.parts)
+        ]
 
         # 2. If SDK wasn't copied into bridge/sdk/, pull sources from sdk_dir
         sdk_in_bridge = bridge_dir / "sdk"
@@ -94,20 +99,38 @@ class StubBuilder:
         sdk_in_bridge = bridge_dir / "sdk"
         if sdk_in_bridge.is_dir():
             dirs.extend([
+                # Signal layer
                 sdk_in_bridge / "app" / "swc",
                 sdk_in_bridge / "com" / "include",
                 sdk_in_bridge / "com" / "src",
                 sdk_in_bridge / "can_io" / "include",
                 sdk_in_bridge / "can_io" / "src",
+                # Transport layer
+                sdk_in_bridge / "mw-fdnrouter" / "include",
+                sdk_in_bridge / "m2s" / "include",
+                sdk_in_bridge / "m2s" / "include" / "common" / "include",
+                sdk_in_bridge / "s2m" / "include",
+                # IPC headers (iceoryx / iceoryx2)
+                sdk_in_bridge / "publish_subscribe" / "include" / "iceoryx" / "v2.95.7",
+                sdk_in_bridge / "publish_subscribe" / "include" / "iceoryx2" / "v0.6.1",
             ])
         elif sdk_dir and sdk_dir.is_dir():
             # Original SDK source layout: sdk_dir/{app/swc, com/include, ...}
             dirs.extend([
+                # Signal layer
                 sdk_dir / "app" / "swc",
                 sdk_dir / "com" / "include",
                 sdk_dir / "com" / "src",
                 sdk_dir / "can_io" / "include",
                 sdk_dir / "can_io" / "src",
+                # Transport layer
+                sdk_dir / "mw-fdnrouter" / "include",
+                sdk_dir / "m2s" / "include",
+                sdk_dir / "m2s" / "include" / "common" / "include",
+                sdk_dir / "s2m" / "include",
+                # IPC headers (iceoryx / iceoryx2)
+                sdk_dir / "publish_subscribe" / "rootfs" / "include" / "iceoryx" / "v2.95.7",
+                sdk_dir / "publish_subscribe" / "rootfs" / "include" / "iceoryx2" / "v0.6.1",
             ])
 
         dirs.append(
