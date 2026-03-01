@@ -247,6 +247,28 @@ class TestPropertyVerifier:
         cmd_strs = [" ".join(c) for c in shell.calls]
         assert any("get-property-value" in s for s in cmd_strs)
 
+    def test_verify_resolves_standard_names(self, tmp_path: Path):
+        """Standard properties like 'VehicleProperty::DOOR_LOCK' are resolved to hex IDs."""
+        props = {
+            "apiVersion": 1,
+            "properties": [
+                {"property": "VehicleProperty::DOOR_LOCK"},
+                {"property": "0x21200101"},
+            ],
+        }
+        props_file = tmp_path / "DefaultProperties.json"
+        props_file.write_text(json.dumps(props))
+
+        shell = FakeShellRunner()
+        shell.set_response("get-property-value", 0, stdout="value: 0")
+        verifier = PropertyVerifier(shell)
+
+        lines = _collect(verifier.verify(props_file))
+        assert any("All 2 properties verified" in l for l in lines)
+        # Check that DOOR_LOCK was resolved to its hex ID
+        cmd_strs = [" ".join(c) for c in shell.calls]
+        assert any("0xB010B00" in s for s in cmd_strs)
+
     def test_verify_reports_failure(self, tmp_path: Path):
         props = {
             "apiVersion": 1,

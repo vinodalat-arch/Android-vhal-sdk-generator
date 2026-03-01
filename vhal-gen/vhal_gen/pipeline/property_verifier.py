@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Iterator
 
+from ..classifier.standard_properties import STANDARD_PROPERTIES
 from ..shell.runner import ShellRunner
+
+
+# Regex to match "VehicleProperty::SOME_NAME"
+_VHPROP_RE = re.compile(r"^VehicleProperty::(\w+)$")
 
 
 class PropertyVerifier:
@@ -14,6 +20,33 @@ class PropertyVerifier:
 
     def __init__(self, shell: ShellRunner | None = None) -> None:
         self._shell = shell or ShellRunner()
+
+    @staticmethod
+    def _resolve_property_id(raw_id) -> tuple[str, str]:
+        """Resolve a property ID from DefaultProperties.json to (hex_str, display_label).
+
+        Handles three formats:
+        - int:  556924416  → ("0x21200100", "0x21200100")
+        - hex string: "0x21200100" → ("0x21200100", "0x21200100")
+        - AOSP name: "VehicleProperty::HEADLIGHTS_STATE" → ("0xE010A00", "HEADLIGHTS_STATE")
+        """
+        if isinstance(raw_id, int):
+            hex_str = f"0x{raw_id:X}"
+            return hex_str, hex_str
+
+        s = str(raw_id)
+        m = _VHPROP_RE.match(s)
+        if m:
+            name = m.group(1)
+            numeric = STANDARD_PROPERTIES.get(name)
+            if numeric is not None:
+                hex_str = f"0x{numeric:X}"
+                return hex_str, name
+            # Unknown standard property — pass the name through
+            return s, name
+
+        # Already a hex string like "0x21200101"
+        return s, s
 
     def verify(
         self,
@@ -49,12 +82,11 @@ class PropertyVerifier:
         failed = 0
 
         for prop_entry in properties:
-            prop_id = prop_entry.get("property")
-            if prop_id is None:
+            raw_id = prop_entry.get("property")
+            if raw_id is None:
                 continue
 
-            # property is stored as a decimal integer in the JSON
-            prop_id_hex = f"0x{prop_id:X}" if isinstance(prop_id, int) else str(prop_id)
+            prop_id_hex, label = self._resolve_property_id(raw_id)
 
             # Query via car_service (trunk builds use "get-property-value")
             rc, stdout, stderr = self._shell.run(
@@ -66,11 +98,11 @@ class PropertyVerifier:
             )
 
             if rc == 0 and "error" not in stdout.lower():
-                yield f"PASS {prop_id_hex}"
+                yield f"PASS {label} ({prop_id_hex})"
                 passed += 1
             else:
                 detail = stdout.strip() or stderr.strip()
-                yield f"FAIL {prop_id_hex} — {detail[:120]}"
+                yield f"FAIL {label} ({prop_id_hex}) — {detail[:120]}"
                 failed += 1
 
         yield ""
