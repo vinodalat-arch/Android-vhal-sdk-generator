@@ -16,6 +16,7 @@ from vhal_gen.classifier.signal_classifier import SignalClassifier
 from vhal_gen.fetcher.gerrit_fetcher import GerritFetcher
 from vhal_gen.generator.generator_engine import GeneratorEngine
 from vhal_gen.parser.model_loader import load_flync_model
+from vhal_gen.pipeline import config
 from vhal_gen.pipeline.deploy_orchestrator import DeployOrchestrator
 from vhal_gen.shell.runner import ShellRunner
 
