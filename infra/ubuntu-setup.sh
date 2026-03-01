@@ -128,7 +128,7 @@ SYSTEM_IMAGE="system-images;android-34-ext9;android-automotive;x86_64"
 sdkmanager --install \
     "platform-tools" \
     "emulator" \
-    "platforms;android-34-ext9" \
+    "platforms;android-34" \
     "$SYSTEM_IMAGE"
 
 # Create AVD if not exists
