@@ -1137,18 +1137,19 @@ with tab_ivi:
             with col_ssh_host:
                 ssh_host_val = st.text_input(
                     "SSH Host", key="ssh_host",
-                    placeholder="192.168.1.100 or hostname",
+                    value="10.152.12.25",
                     help="IP address or hostname of the remote build machine.",
                 )
             with col_ssh_user:
                 ssh_user_val = st.text_input(
                     "SSH User", key="ssh_user",
-                    placeholder="(optional, uses current user)",
+                    value="vinoda",
                 )
             col_ssh_pass, col_ssh_key = st.columns(2)
             with col_ssh_pass:
                 ssh_password_val = st.text_input(
                     "SSH Password", key="ssh_password",
+                    value="Vinod123",
                     type="password",
                     help="SSH password (uses sshpass for non-interactive auth).",
                 )
@@ -1162,7 +1163,7 @@ with tab_ivi:
             with col_ssh_aosp:
                 ssh_aosp_dir_val = st.text_input(
                     "AOSP Dir", key="ssh_aosp_dir",
-                    value="~/aosp",
+                    value="/mnt/dev/ford-sdk",
                     help="Path to AOSP source tree on the remote machine.",
                 )
 
