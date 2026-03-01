@@ -110,9 +110,10 @@ android_app {
     name: "VhalTestApp",
     srcs: ["test-apk/VhalTestActivity.java"],
     manifest: "test-apk/AndroidManifest.xml",
-    // Use system_current (not platform_apis) so the APK doesn't get tagged
-    // with the development codename which release builds reject.
-    sdk_version: "system_current",
+    // Use module_current to match android.car's API level (module API).
+    // Avoids platform_apis which tags the APK with the dev codename
+    // that release builds reject.
+    sdk_version: "module_current",
     min_sdk_version: "33",
     certificate: "platform",
     privileged: true,
