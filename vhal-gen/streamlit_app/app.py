@@ -997,18 +997,20 @@ with tab_ivi:
     elif vm_status is not None:
         st.warning(f"Instance status: {vm_status}")
 
-    # --- Two Tabs: Build on GCP vs Use Local Artifacts ---
-    tab_incr, tab_full = st.tabs(["Build VHAL on GCP", "Use Pre-built Artifacts"])
+    # --- Three Tabs: Build on GCP / SSH / Use Local Artifacts ---
+    tab_incr, tab_ssh, tab_full = st.tabs(["Build VHAL on GCP", "Remote Build (SSH)", "Use Pre-built Artifacts"])
 
     # -- Tab: Use Pre-built Artifacts --
     with tab_full:
-        st.caption("Deploy pre-built VHAL artifacts to emulator without building on GCP.")
+        st.caption("Deploy pre-built VHAL artifacts to emulator (stored in `prebuilts/` by default).")
 
+        # Default to repo prebuilts/ directory
+        _default_prebuilts = str(Path(__file__).parent.parent / "prebuilts")
         deploy_artifact_dir = st.text_input(
             "Artifact Directory",
             key="deploy_artifact_dir",
-            placeholder="/path/to/artifacts",
-            help="Path containing the VHAL binary and DefaultProperties.json.",
+            value=_default_prebuilts,
+            help="Path containing the VHAL binary and DefaultProperties.json. Defaults to repo prebuilts/.",
         )
 
         deploy_full_clicked = st.button(
@@ -1126,6 +1128,155 @@ with tab_ivi:
                     st.session_state["vhal_pushed"] = True
                     status.update(label="VHAL source pushed!", state="complete")
 
+    # -- Tab: Remote Build (SSH) --
+    with tab_ssh:
+        st.caption("Build via plain SSH/SCP — bypasses Zscaler/gcloud issues.")
+
+        with st.expander("SSH Connection", expanded=True):
+            col_ssh_host, col_ssh_user = st.columns(2)
+            with col_ssh_host:
+                ssh_host_val = st.text_input(
+                    "SSH Host", key="ssh_host",
+                    placeholder="192.168.1.100 or hostname",
+                    help="IP address or hostname of the remote build machine.",
+                )
+            with col_ssh_user:
+                ssh_user_val = st.text_input(
+                    "SSH User", key="ssh_user",
+                    placeholder="(optional, uses current user)",
+                )
+            col_ssh_pass, col_ssh_key = st.columns(2)
+            with col_ssh_pass:
+                ssh_password_val = st.text_input(
+                    "SSH Password", key="ssh_password",
+                    type="password",
+                    help="SSH password (uses sshpass for non-interactive auth).",
+                )
+            with col_ssh_key:
+                ssh_key_val = st.text_input(
+                    "SSH Key", key="ssh_key",
+                    placeholder="~/.ssh/id_rsa (optional)",
+                    help="Path to SSH private key. Leave blank to use default.",
+                )
+            col_ssh_aosp, _ = st.columns(2)
+            with col_ssh_aosp:
+                ssh_aosp_dir_val = st.text_input(
+                    "AOSP Dir", key="ssh_aosp_dir",
+                    value="~/aosp",
+                    help="Path to AOSP source tree on the remote machine.",
+                )
+
+            ssh_check_clicked = st.button(
+                "Check Connection", use_container_width=True,
+                disabled=not ssh_host_val,
+                key="ssh_check_btn",
+            )
+
+        _has_generated_code_ssh = st.session_state.get("code_generated", False)
+        ssh_skip_generate = st.checkbox(
+            "Skip Generate", key="ssh_skip_generate",
+            disabled=not _has_generated_code_ssh,
+            help="Skip code generation (use already-generated code)." if _has_generated_code_ssh
+            else "Generate code first (Step 3) before skipping.",
+        )
+
+        deploy_ssh_clicked = st.button(
+            "Build & Deploy VHAL (SSH)",
+            type="primary",
+            use_container_width=True,
+            disabled=not ssh_host_val,
+            key="deploy_ssh_btn",
+        )
+        if not ssh_host_val:
+            st.caption("Enter an SSH host above to enable this button.")
+
+    if ssh_check_clicked:
+        from vhal_gen.pipeline.ssh_builder import SshBuilder
+        ssh_builder = SshBuilder(
+            ssh_host=ssh_host_val,
+            ssh_user=ssh_user_val,
+            ssh_key=ssh_key_val,
+            ssh_password=ssh_password_val,
+            aosp_dir=ssh_aosp_dir_val,
+        )
+        with st.status("Checking SSH connection & build environment...", expanded=True) as ssh_status:
+            ssh_ok = True
+            for line in ssh_builder.check_connection():
+                if line.startswith("PASS"):
+                    st.write(f":white_check_mark: {line}")
+                elif line.startswith("INFO"):
+                    st.info(line.removeprefix("INFO "))
+                elif line.startswith("ERROR:"):
+                    st.error(line)
+                    ssh_ok = False
+            if ssh_ok:
+                st.session_state["ssh_ready"] = True
+                ssh_status.update(label="Remote build environment ready", state="complete")
+            else:
+                st.session_state["ssh_ready"] = False
+                ssh_status.update(label="Remote environment check failed", state="error")
+
+    if deploy_ssh_clicked:
+        model_dir_val = st.session_state.get("model_dir", "")
+        vhal_path_val = st.session_state.get("vhal_path", "")
+
+        if not model_dir_val or not Path(model_dir_val).is_dir():
+            st.error("Model not loaded. Set the YAML model directory in the sidebar and click Load Model.")
+        elif not vhal_path_val or not Path(vhal_path_val).is_dir():
+            st.error("VHAL source not found. Pull VHAL source or click Generate to auto-fetch it.")
+        else:
+            sdk_dir_val = st.session_state.get("sdk_source_dir", "")
+            sdk_path_arg = Path(sdk_dir_val) if sdk_dir_val and Path(sdk_dir_val).is_dir() else None
+
+            orchestrator = DeployOrchestrator()
+            with st.status("Building VHAL via SSH and deploying...", expanded=True) as status:
+                all_lines: list[str] = []
+                for line in orchestrator.run(
+                    model_dir=Path(model_dir_val),
+                    vhal_dir=Path(vhal_path_val),
+                    sdk_dir=sdk_path_arg,
+                    skip_generate=ssh_skip_generate,
+                    remote_ssh=True,
+                    ssh_host=ssh_host_val,
+                    ssh_user=ssh_user_val,
+                    ssh_key=ssh_key_val,
+                    ssh_password=ssh_password_val,
+                    aosp_dir=ssh_aosp_dir_val,
+                ):
+                    all_lines.append(line)
+                    if line.startswith("PASS"):
+                        st.write(f":white_check_mark: {line}")
+                    elif line.startswith("FAIL"):
+                        st.write(f":x: {line}")
+                    elif line.startswith("ERROR:"):
+                        st.error(line)
+                    elif line.startswith("==="):
+                        st.markdown(f"**{line.strip('= ')}**")
+                    elif line.startswith("Checking") or line.startswith("Stage"):
+                        st.write(line)
+                    elif line.startswith("  "):
+                        st.code(line.strip(), language="text")
+                    elif line:
+                        st.write(line)
+
+                has_fail = any(l.startswith("FAIL") for l in all_lines)
+                has_error = any(l.startswith("ERROR:") for l in all_lines)
+                if has_fail or has_error:
+                    status.update(label="SSH build & deploy failed", state="error")
+                else:
+                    st.session_state["deploy_tested"] = True
+                    # Update prebuilts/ with fresh artifacts
+                    import shutil
+                    prebuilts_dir = Path(__file__).parent.parent / "prebuilts"
+                    artifact_src = Path("artifacts") / "ssh-incremental"
+                    if artifact_src.is_dir():
+                        prebuilts_dir.mkdir(exist_ok=True)
+                        for f in artifact_src.iterdir():
+                            if f.is_file():
+                                shutil.copy2(f, prebuilts_dir / f.name)
+                        st.write(":white_check_mark: Updated prebuilts/ with new artifacts")
+                    status.update(label="VHAL built (SSH) and deployed!", state="complete")
+
     # -- Tab: Build VHAL on GCP (default) --
     with tab_incr:
         st.caption("Sync generated code to GCP, build VHAL module (~5-15 min), pull binary back, and deploy to emulator.")
@@ -1194,4 +1345,14 @@ with tab_ivi:
                     status.update(label="Build & deploy failed", state="error")
                 else:
                     st.session_state["deploy_tested"] = True
+                    # Update prebuilts/ with fresh artifacts
+                    import shutil as _shutil
+                    _prebuilts_dir = Path(__file__).parent.parent / "prebuilts"
+                    _artifact_src = Path("artifacts") / "incremental"
+                    if _artifact_src.is_dir():
+                        _prebuilts_dir.mkdir(exist_ok=True)
+                        for _f in _artifact_src.iterdir():
+                            if _f.is_file():
+                                _shutil.copy2(_f, _prebuilts_dir / _f.name)
+                        st.write(":white_check_mark: Updated prebuilts/ with new artifacts")
                     status.update(label="VHAL built and deployed!", state="complete")

@@ -1,0 +1,6 @@
+{
+  "build_type": "incremental",
+  "instance": "aosp-builder",
+  "zone": "us-central1-a",
+  "timestamp": "2026-03-01T14:30:06.245961+00:00"
+}

@@ -332,6 +332,36 @@ def _echo_status_line(line: str) -> bool:
     is_flag=True,
     help="Force re-upload of SDK files to GCP instance (even if already present).",
 )
+@click.option(
+    "--remote-ssh",
+    is_flag=True,
+    help="Use plain SSH/SCP build instead of gcloud (bypasses Zscaler).",
+)
+@click.option(
+    "--ssh-host",
+    default="",
+    help="SSH hostname for remote build (required with --remote-ssh).",
+)
+@click.option(
+    "--ssh-user",
+    default="",
+    help="SSH username (optional, defaults to current user).",
+)
+@click.option(
+    "--ssh-key",
+    default="",
+    help="Path to SSH private key (optional).",
+)
+@click.option(
+    "--ssh-password",
+    default="",
+    help="SSH password (uses sshpass, optional).",
+)
+@click.option(
+    "--aosp-dir",
+    default="~/aosp",
+    help="AOSP source directory on the remote host.",
+)
 def deploy_test(
     model_dir: str,
     vhal_dir: str,
@@ -346,10 +376,20 @@ def deploy_test(
     gcp_zone: str,
     gcp_project: str | None,
     force_sdk_sync: bool,
+    remote_ssh: bool,
+    ssh_host: str,
+    ssh_user: str,
+    ssh_key: str,
+    ssh_password: str,
+    aosp_dir: str,
 ):
     """Full GCP pipeline: build on AOSP, push to emulator, verify properties."""
     if incremental and not gcp_instance:
         click.echo(click.style("ERROR: --gcp-instance is required with --incremental", fg="red", bold=True))
+        sys.exit(1)
+
+    if remote_ssh and not ssh_host:
+        click.echo(click.style("ERROR: --ssh-host is required with --remote-ssh", fg="red", bold=True))
         sys.exit(1)
 
     from .pipeline.deploy_orchestrator import DeployOrchestrator
@@ -371,6 +411,12 @@ def deploy_test(
         gcp_zone=gcp_zone,
         gcp_project=gcp_project,
         force_sdk_sync=force_sdk_sync,
+        remote_ssh=remote_ssh,
+        ssh_host=ssh_host,
+        ssh_user=ssh_user,
+        ssh_key=ssh_key,
+        ssh_password=ssh_password,
+        aosp_dir=aosp_dir,
     ):
         if _echo_status_line(line):
             has_fail = True

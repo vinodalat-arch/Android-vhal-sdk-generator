@@ -44,6 +44,12 @@ class DeployOrchestrator:
         gcp_zone: str = "",
         gcp_project: str | None = None,
         force_sdk_sync: bool = False,
+        remote_ssh: bool = False,
+        ssh_host: str = "",
+        ssh_user: str = "",
+        ssh_key: str = "",
+        ssh_password: str = "",
+        aosp_dir: str = "~/aosp",
     ) -> Iterator[str]:
         """Execute the deploy-test pipeline.
 
@@ -61,6 +67,12 @@ class DeployOrchestrator:
             gcp_zone: GCP zone (required if incremental).
             gcp_project: GCP project ID (optional).
             force_sdk_sync: Force re-upload of SDK files to GCP instance.
+            remote_ssh: Use plain SSH/SCP build instead of gcloud.
+            ssh_host: SSH hostname (required if remote_ssh).
+            ssh_user: SSH username (optional).
+            ssh_key: Path to SSH private key (optional).
+            ssh_password: SSH password (optional, uses sshpass).
+            aosp_dir: AOSP source directory on remote host.
 
         Yields:
             Status lines suitable for CLI streaming.
@@ -73,7 +85,35 @@ class DeployOrchestrator:
             yield "=== Stage 1: Generate (skipped) ==="
 
         # --- Stages 2–4: Build ---
-        if incremental:
+        if remote_ssh:
+            # SSH incremental build on a remote machine (no gcloud)
+            from .ssh_builder import SshBuilder
+
+            if artifact_dir is None:
+                artifact_dir = Path("artifacts") / "ssh-incremental"
+            builder = SshBuilder(
+                ssh_host=ssh_host,
+                ssh_user=ssh_user,
+                ssh_key=ssh_key,
+                ssh_password=ssh_password,
+                aosp_dir=aosp_dir,
+                shell=self._shell,
+                force_sdk_sync=force_sdk_sync,
+            )
+            yield ""
+            for line in builder.build_incremental(
+                vhal_dir=vhal_dir, artifact_dir=artifact_dir,
+            ):
+                yield line
+                if line.startswith(("FAIL", "ERROR:")):
+                    yield "Pipeline aborted — SSH VHAL build failed."
+                    return
+
+            # Copy DefaultProperties.json into artifact_dir so Stage 6 finds it
+            dp_src = vhal_dir / "impl" / "bridge" / "DefaultProperties.json"
+            if dp_src.exists():
+                shutil.copy2(dp_src, artifact_dir / "DefaultProperties.json")
+        elif incremental:
             # Incremental build on a pre-existing GCP instance
             from .gcp_builder import GcpBuilder
 

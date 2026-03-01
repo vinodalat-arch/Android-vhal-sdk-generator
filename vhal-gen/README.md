@@ -55,6 +55,9 @@ pip install -e .
 # Install Homebrew packages
 brew install python@3.10 llvm
 
+# sshpass — required for password-based SSH remote builds
+brew install hudochenkov/sshpass/sshpass
+
 # Clone and setup
 git clone <repo-url> && cd Android-vhal-sdk-generator
 cd vhal-gen

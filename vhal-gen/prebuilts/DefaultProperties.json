@@ -1,0 +1,327 @@
+{
+    "apiVersion": 1,
+    "properties": [
+        {
+            "property": "0x21200101",
+            "propertyId": 555745537,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::HAZARD_LIGHTS_STATE",
+            "propertyId": 234949125,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200102",
+            "propertyId": 555745538,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200103",
+            "propertyId": 555745539,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::DOOR_LOCK",
+            "propertyId": 184617728,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 4, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::DOOR_LOCK",
+            "propertyId": 184617728,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 1, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200104",
+            "propertyId": 555745540,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200105",
+            "propertyId": 555745541,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::DOOR_LOCK",
+            "propertyId": 184617728,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 64, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::DOOR_LOCK",
+            "propertyId": 184617728,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 16, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200106",
+            "propertyId": 555745542,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200107",
+            "propertyId": 555745543,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200108",
+            "propertyId": 555745544,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200109",
+            "propertyId": 555745545,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x2120010A",
+            "propertyId": 555745546,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x2120010B",
+            "propertyId": 555745547,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::HEADLIGHTS_STATE",
+            "propertyId": 234949120,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 3}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x2140010C",
+            "propertyId": 557842700,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 2}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::HIGH_BEAM_LIGHTS_STATE",
+            "propertyId": 234949122,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 2}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x2140010D",
+            "propertyId": 557842701,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 3}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::TURN_SIGNAL_STATE",
+            "propertyId": 234949124,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 5}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x2120010E",
+            "propertyId": 555745550,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x2140010F",
+            "propertyId": 557842703,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 2}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200110",
+            "propertyId": 555745552,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21200111",
+            "propertyId": 555745553,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::NIGHT_MODE",
+            "propertyId": 287310855,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 2}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::HIGH_BEAM_LIGHTS_SWITCH",
+            "propertyId": 234949123,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 3}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::HEADLIGHTS_SWITCH",
+            "propertyId": 234949121,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 3}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::HAZARD_LIGHTS_SWITCH",
+            "propertyId": 234949126,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 2}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21400112",
+            "propertyId": 557842706,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 3}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::DOOR_LOCK",
+            "propertyId": 184617728,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 3}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21400113",
+            "propertyId": 557842707,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 3}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21400114",
+            "propertyId": 557842708,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 3}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "VehicleProperty::PERF_VEHICLE_SPEED",
+            "propertyId": 291504647,
+            "defaultValue": {"floatValues": [0.0]},
+            "areas": [{"areaId": 0, "minFloatValue": 0.0, "maxFloatValue": 240.0}],
+            "maxSampleRate": 10.0,
+            "minSampleRate": 1.0,
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::CONTINUOUS"
+        },
+        {
+            "property": "0x21400115",
+            "propertyId": 557842709,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 7}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21400116",
+            "propertyId": 557842710,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 1}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21400117",
+            "propertyId": 557842711,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 2147483647}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21400118",
+            "propertyId": 557842712,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 2147483647}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x21400119",
+            "propertyId": 557842713,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 255}],
+            "access": "VehiclePropertyAccess::READ_WRITE",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        },
+        {
+            "property": "0x2140011A",
+            "propertyId": 557842714,
+            "defaultValue": {"int32Values": [0]},
+            "areas": [{"areaId": 0, "minInt32Value": 0, "maxInt32Value": 15}],
+            "access": "VehiclePropertyAccess::READ",
+            "changeMode": "VehiclePropertyChangeMode::ON_CHANGE"
+        }
+    ]
+}
