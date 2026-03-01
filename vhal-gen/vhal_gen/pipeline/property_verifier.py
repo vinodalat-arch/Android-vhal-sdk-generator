@@ -56,11 +56,11 @@ class PropertyVerifier:
             # property is stored as a decimal integer in the JSON
             prop_id_hex = f"0x{prop_id:X}" if isinstance(prop_id, int) else str(prop_id)
 
-            # Query via car_service
+            # Query via car_service (trunk builds use "get-property-value")
             rc, stdout, stderr = self._shell.run(
                 [
                     "adb", "shell", "cmd", "car_service",
-                    "get-property", str(prop_id),
+                    "get-property-value", prop_id_hex,
                 ],
                 timeout=10,
             )

@@ -48,10 +48,6 @@ class EmulatorDeployer:
         # adb remount
         yield from self._remount()
 
-        # Set SELinux permissive for testing
-        yield "Setting SELinux permissive..."
-        self._shell.run(["adb", "shell", "setenforce", "0"], timeout=10)
-
         # Stop VHAL service before pushing
         yield f"Stopping {config.VHAL_SERVICE_NAME}..."
         self._shell.run(
@@ -124,17 +120,45 @@ class EmulatorDeployer:
             else:
                 yield "PASS VINTF manifest updated (V3)"
 
+        # Push privapp-permissions so the test app's CAR_* permissions are allowed
+        privapp_pushed = False
+        privapp_local = None
+        if vhal_dir is not None:
+            privapp_local = vhal_dir / "impl" / "bridge" / "privapp-permissions-vhaltest.xml"
+        if privapp_local and privapp_local.is_file():
+            device_path = "/system/etc/permissions/privapp-permissions-vhaltest.xml"
+            yield f"Pushing privapp-permissions → {device_path}"
+            rc, _, stderr = self._shell.run(
+                ["adb", "push", str(privapp_local), device_path], timeout=15,
+            )
+            if rc != 0:
+                yield f"FAIL privapp-permissions push: {stderr.strip()}"
+                all_ok = False
+            else:
+                yield "PASS privapp-permissions"
+                privapp_pushed = True
+        else:
+            yield "WARNING: privapp-permissions-vhaltest.xml not found — test app may not start"
+
         if not all_ok:
             yield "WARNING: Some files failed to push — service may not start."
 
-        # Start VHAL service
-        yield f"Starting {config.VHAL_SERVICE_NAME}..."
-        self._shell.run(
-            ["adb", "shell", "start", config.VHAL_SERVICE_NAME], timeout=15
-        )
+        # Full reboot so PackageManager scans priv-apps and CarService
+        # initializes fresh with the new VHAL binary.
+        yield "Rebooting device for clean VHAL + app registration..."
+        self._shell.run(["adb", "reboot"], timeout=15)
+        yield f"Waiting {config.ADB_REBOOT_WAIT_SECONDS}s for reboot..."
+        time.sleep(config.ADB_REBOOT_WAIT_SECONDS)
+        self._shell.run(["adb", "wait-for-device"], timeout=120)
+        self._shell.run(["adb", "root"], timeout=15)
+        self._shell.run(["adb", "wait-for-device"], timeout=30)
 
-        # Brief wait for service to initialize
-        time.sleep(5)
+        # Set SELinux permissive for testing (daemon fork+exec needs it)
+        yield "Setting SELinux permissive..."
+        self._shell.run(["adb", "shell", "setenforce", "0"], timeout=10)
+
+        # Wait for VHAL service to come up after boot
+        time.sleep(10)
 
         # Verify service is running
         rc, stdout, _ = self._shell.run(

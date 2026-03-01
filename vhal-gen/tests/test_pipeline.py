@@ -191,7 +191,7 @@ class TestEmulatorDeployer:
         shell.set_response("adb shell chmod", 0)
         shell.set_response("adb shell setenforce", 0)
         shell.set_response("adb shell stop", 0)
-        shell.set_response("adb shell start", 0)
+        shell.set_response("adb reboot", 0)
         shell.set_response("adb shell getprop", 0, stdout="running")
         shell.set_response("adb wait-for-device", 0)
         deployer = EmulatorDeployer(shell)
@@ -199,7 +199,7 @@ class TestEmulatorDeployer:
         lines = _collect(deployer.deploy(tmp_path))
         pass_lines = [l for l in lines if l.startswith("PASS")]
         # One PASS per pushed file + VINTF manifest + service running
-        # (DefaultProperties.json is deployed from vhal_dir, not artifact_dir)
+        # (DefaultProperties.json + privapp-permissions deployed from vhal_dir)
         assert len(pass_lines) == len(config.DEVICE_PATHS) + 2
 
     def test_deploy_reports_missing_artifact(self, tmp_path: Path):
@@ -210,7 +210,7 @@ class TestEmulatorDeployer:
         shell.set_response("adb remount", 0)
         shell.set_response("adb shell setenforce", 0)
         shell.set_response("adb shell stop", 0)
-        shell.set_response("adb shell start", 0)
+        shell.set_response("adb reboot", 0)
         shell.set_response("adb shell getprop", 0, stdout="running")
         shell.set_response("adb wait-for-device", 0)
         deployer = EmulatorDeployer(shell)
@@ -238,11 +238,14 @@ class TestPropertyVerifier:
         props_file.write_text(json.dumps(props))
 
         shell = FakeShellRunner()
-        shell.set_response("car_service", 0, stdout="value: 0")
+        shell.set_response("get-property-value", 0, stdout="value: 0")
         verifier = PropertyVerifier(shell)
 
         lines = _collect(verifier.verify(props_file))
         assert any("All 2 properties verified" in l for l in lines)
+        # Verify the command uses get-property-value (not get-property)
+        cmd_strs = [" ".join(c) for c in shell.calls]
+        assert any("get-property-value" in s for s in cmd_strs)
 
     def test_verify_reports_failure(self, tmp_path: Path):
         props = {
@@ -255,7 +258,7 @@ class TestPropertyVerifier:
         props_file.write_text(json.dumps(props))
 
         shell = FakeShellRunner()
-        shell.set_response("car_service", 1, stderr="property not found")
+        shell.set_response("get-property-value", 1, stderr="property not found")
         verifier = PropertyVerifier(shell)
 
         lines = _collect(verifier.verify(props_file))
