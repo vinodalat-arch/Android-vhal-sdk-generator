@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Iterator
 
@@ -42,6 +43,7 @@ class DeployOrchestrator:
         gcp_instance: str = "",
         gcp_zone: str = "",
         gcp_project: str | None = None,
+        force_sdk_sync: bool = False,
     ) -> Iterator[str]:
         """Execute the deploy-test pipeline.
 
@@ -58,6 +60,7 @@ class DeployOrchestrator:
             gcp_instance: GCP Compute Engine instance name (required if incremental).
             gcp_zone: GCP zone (required if incremental).
             gcp_project: GCP project ID (optional).
+            force_sdk_sync: Force re-upload of SDK files to GCP instance.
 
         Yields:
             Status lines suitable for CLI streaming.
@@ -81,6 +84,7 @@ class DeployOrchestrator:
                 zone=gcp_zone,
                 project=gcp_project,
                 shell=self._shell,
+                force_sdk_sync=force_sdk_sync,
             )
             yield ""
             for line in builder.build_incremental(
@@ -90,6 +94,11 @@ class DeployOrchestrator:
                 if line.startswith(("FAIL", "ERROR:")):
                     yield "Pipeline aborted — VHAL build failed."
                     return
+
+            # Copy DefaultProperties.json into artifact_dir so Stage 6 finds it
+            dp_src = vhal_dir / "impl" / "bridge" / "DefaultProperties.json"
+            if dp_src.exists():
+                shutil.copy2(dp_src, artifact_dir / "DefaultProperties.json")
         elif not skip_build:
             yield ""
             yield "=== Stage 2: Git Push ==="

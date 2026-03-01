@@ -327,6 +327,11 @@ def _echo_status_line(line: str) -> bool:
     default=None,
     help="GCP project ID (uses gcloud default if not set).",
 )
+@click.option(
+    "--force-sdk-sync",
+    is_flag=True,
+    help="Force re-upload of SDK files to GCP instance (even if already present).",
+)
 def deploy_test(
     model_dir: str,
     vhal_dir: str,
@@ -340,6 +345,7 @@ def deploy_test(
     gcp_instance: str,
     gcp_zone: str,
     gcp_project: str | None,
+    force_sdk_sync: bool,
 ):
     """Full GCP pipeline: build on AOSP, push to emulator, verify properties."""
     if incremental and not gcp_instance:
@@ -364,6 +370,7 @@ def deploy_test(
         gcp_instance=gcp_instance,
         gcp_zone=gcp_zone,
         gcp_project=gcp_project,
+        force_sdk_sync=force_sdk_sync,
     ):
         if _echo_status_line(line):
             has_fail = True

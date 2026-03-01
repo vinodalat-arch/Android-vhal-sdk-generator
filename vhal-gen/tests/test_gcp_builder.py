@@ -164,39 +164,81 @@ class TestInstanceControl:
 class TestSyncCode:
 
     def _make_vhal_dir(self, tmp_path: Path) -> Path:
-        """Create a vhal_dir with impl/bridge/ and impl/vhal/ subdirs."""
+        """Create a vhal_dir with impl/bridge/ (generated files + test-apk/) and impl/vhal/."""
         vhal_dir = tmp_path / "vhal"
-        (vhal_dir / "impl" / "bridge").mkdir(parents=True)
+        bridge = vhal_dir / "impl" / "bridge"
+        bridge.mkdir(parents=True)
+        (bridge / "test-apk").mkdir()
+        # Create all 13 generated files
+        for fname in config.GCP_GENERATED_BRIDGE_FILES:
+            (bridge / fname).write_text("generated")
         (vhal_dir / "impl" / "vhal" / "src").mkdir(parents=True)
         (vhal_dir / "impl" / "vhal" / "Android.bp").write_text("cc_binary {}")
         (vhal_dir / "impl" / "vhal" / "src" / "VehicleService.cpp").write_text("int main() {}")
         return vhal_dir
 
     def test_sync_success(self, tmp_path: Path):
+        """SDK missing on remote → upload SDK + 13 generated files + 2 vhal files."""
         shell = FakeShellRunner()
         shell.set_response("compute scp", 0)
+        # SSH check returns MISSING so SDK gets uploaded
+        shell.set_response("echo EXISTS || echo MISSING", 0, stdout="MISSING")
         builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
         vhal_dir = self._make_vhal_dir(tmp_path)
+        # Add sdk/ dir so SDK upload happens
+        (vhal_dir / "impl" / "bridge" / "sdk").mkdir()
+        (vhal_dir / "impl" / "bridge" / "sdk" / "foo.h").write_text("// sdk")
 
         lines = _collect(builder._sync_code(vhal_dir))
         pass_lines = [l for l in lines if l.startswith("PASS")]
-        # Should have 2 PASS lines: bridge synced + vhal synced
-        assert len(pass_lines) == 2
-        assert any("Bridge" in l for l in pass_lines)
+        # SDK synced + Generated bridge files synced + Patched vhal synced
+        assert len(pass_lines) == 3
+        assert any("SDK" in l for l in pass_lines)
+        assert any("Generated" in l for l in pass_lines)
         assert any("vhal" in l.lower() for l in pass_lines)
-        # Should have made 3 SCP calls: 1 for bridge + 2 individual vhal files
+        # SCP calls: 1 SDK recursive + 13 individual + 2 vhal = 16
         scp_calls = [c for c in shell.calls if "scp" in " ".join(c)]
-        assert len(scp_calls) == 3
+        assert len(scp_calls) == 16
 
-    def test_sync_bridge_scp_failure(self, tmp_path: Path):
+    def test_sync_sdk_already_present(self, tmp_path: Path):
+        """SDK already on remote → skip SDK, upload only generated + vhal."""
         shell = FakeShellRunner()
-        shell.set_response("compute scp", 1, stderr="ssh connection refused")
+        shell.set_response("compute scp", 0)
+        shell.set_response("echo EXISTS || echo MISSING", 0, stdout="EXISTS")
         builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
         vhal_dir = self._make_vhal_dir(tmp_path)
 
         lines = _collect(builder._sync_code(vhal_dir))
-        assert any("ERROR:" in l and "bridge" in l.lower() for l in lines)
-        # Should abort after first SCP failure, no second SCP
+        skip_lines = [l for l in lines if l.startswith("SKIP")]
+        assert any("SDK already present" in l for l in skip_lines)
+        # No SDK SCP — only 13 generated + 2 vhal = 15
+        scp_calls = [c for c in shell.calls if "scp" in " ".join(c)]
+        assert len(scp_calls) == 15
+
+    def test_sync_sdk_missing(self, tmp_path: Path):
+        """SDK missing on remote → uploads SDK recursively."""
+        shell = FakeShellRunner()
+        shell.set_response("compute scp", 0)
+        shell.set_response("echo EXISTS || echo MISSING", 0, stdout="MISSING")
+        builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        vhal_dir = self._make_vhal_dir(tmp_path)
+        (vhal_dir / "impl" / "bridge" / "sdk").mkdir()
+
+        lines = _collect(builder._sync_code(vhal_dir))
+        assert any("PASS" in l and "SDK" in l for l in lines)
+
+    def test_sync_bridge_scp_failure(self, tmp_path: Path):
+        """First individual generated file SCP fails → abort."""
+        shell = FakeShellRunner()
+        shell.set_response("compute scp", 1, stderr="ssh connection refused")
+        # SDK check says present, so skip SDK upload
+        shell.set_response("echo EXISTS || echo MISSING", 0, stdout="EXISTS")
+        builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
+        vhal_dir = self._make_vhal_dir(tmp_path)
+
+        lines = _collect(builder._sync_code(vhal_dir))
+        assert any("ERROR:" in l for l in lines)
+        # Should abort after first SCP failure
         scp_calls = [c for c in shell.calls if "scp" in " ".join(c)]
         assert len(scp_calls) == 1
 
@@ -253,7 +295,11 @@ class TestBuildIncremental:
         builder = GcpBuilder(instance_name="vm-1", zone="us-central1-a", shell=shell)
 
         vhal_dir = tmp_path / "vhal"
-        (vhal_dir / "impl" / "bridge").mkdir(parents=True)
+        bridge = vhal_dir / "impl" / "bridge"
+        bridge.mkdir(parents=True)
+        (bridge / "test-apk").mkdir()
+        for fname in config.GCP_GENERATED_BRIDGE_FILES:
+            (bridge / fname).write_text("generated")
         (vhal_dir / "impl" / "vhal" / "src").mkdir(parents=True)
         (vhal_dir / "impl" / "vhal" / "Android.bp").write_text("cc_binary {}")
         (vhal_dir / "impl" / "vhal" / "src" / "VehicleService.cpp").write_text("int main() {}")

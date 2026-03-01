@@ -87,3 +87,13 @@ GCP_ARTIFACT_REMOTE_PATHS = {
     "DefaultVehicleHal.so": "vendor/lib64/DefaultVehicleHal.so",
     "VhalTestApp.apk": "system/priv-app/VhalTestApp/VhalTestApp.apk",
 }
+
+# Generated files that change every run (sync only these, not SDK)
+GCP_GENERATED_BRIDGE_FILES = [
+    "DefaultProperties.json", "VendorProperties.h", "IpcProtocol.h",
+    "BridgeVehicleHardware.h", "BridgeVehicleHardware.cpp",
+    "VehicleDaemon.h", "VehicleDaemon.cpp",
+    "Android.bp", "INTEGRATION.md", "iceoryx2_stubs.cpp",
+    "privapp-permissions-vhaltest.xml",
+    "test-apk/VhalTestActivity.java", "test-apk/AndroidManifest.xml",
+]

@@ -21,11 +21,13 @@ class GcpBuilder:
         zone: str,
         project: str | None = None,
         shell: ShellRunner | None = None,
+        force_sdk_sync: bool = False,
     ) -> None:
         self._instance = instance_name
         self._zone = zone
         self._project = project
         self._shell = shell or ShellRunner()
+        self._force_sdk_sync = force_sdk_sync
 
     # -- helpers --------------------------------------------------------
 
@@ -147,52 +149,89 @@ class GcpBuilder:
     def _sync_code(self, vhal_dir: Path) -> Iterator[str]:
         """SCP generated bridge code and patched vhal files to the instance.
 
-        The generator produces files in two locations:
-        - impl/bridge/ — generated templates + SDK files
-        - impl/vhal/  — patched VehicleService.cpp and Android.bp
-
-        Both must be uploaded to the matching remote paths.
+        Smart sync: only uploads the 13 generated files each run.  The static
+        SDK directory (~464 files) is uploaded only when missing on the remote
+        or when ``force_sdk_sync`` is set.
         """
-        # Upload impl/bridge/ (generated templates + SDK files)
         bridge_local = vhal_dir / "impl" / "bridge"
         if not bridge_local.is_dir():
             yield f"ERROR: Bridge directory not found at {bridge_local}"
             return
 
-        # Clean remote bridge dir first, then upload contents
-        yield f"Syncing bridge code from {bridge_local} ..."
-        clean_cmd = self._gcloud_base() + [
+        # --- Step 1: SDK sync (skip if already present on remote) ----------
+        sdk_remote = f"{config.GCP_REMOTE_VHAL_PATH}/sdk"
+        check_cmd = self._gcloud_base() + [
             "compute", "ssh", self._instance,
             "--zone", self._zone, "--quiet", "--",
-            f"rm -rf {config.GCP_REMOTE_VHAL_PATH} && mkdir -p {config.GCP_REMOTE_VHAL_PATH}",
+            f"test -d {sdk_remote} && echo EXISTS || echo MISSING",
         ]
-        self._shell.run(clean_cmd, timeout=30)
+        rc, stdout, _ = self._shell.run(check_cmd, timeout=30)
+        sdk_present = "EXISTS" in stdout
 
-        cmd = self._gcloud_base() + [
-            "compute", "scp", "--recurse",
-            # Glob all contents of bridge_local so SCP puts files directly
-            # into the remote path (not nested bridge/bridge/)
-            f"{bridge_local}",
-            f"{self._instance}:{config.GCP_REMOTE_VHAL_PATH}/../",
-            "--zone", self._zone, "--quiet",
+        if self._force_sdk_sync or not sdk_present:
+            sdk_local = bridge_local / "sdk"
+            if sdk_local.is_dir():
+                reason = "forced" if self._force_sdk_sync else "missing on remote"
+                yield f"Uploading SDK ({reason}) ..."
+                mkdir_cmd = self._gcloud_base() + [
+                    "compute", "ssh", self._instance,
+                    "--zone", self._zone, "--quiet", "--",
+                    f"mkdir -p {sdk_remote}",
+                ]
+                self._shell.run(mkdir_cmd, timeout=30)
+
+                cmd = self._gcloud_base() + [
+                    "compute", "scp", "--recurse",
+                    str(sdk_local),
+                    f"{self._instance}:{config.GCP_REMOTE_VHAL_PATH}/",
+                    "--zone", self._zone, "--quiet",
+                ]
+                rc, _, stderr = self._shell.run(
+                    cmd, timeout=config.GCP_INCREMENTAL_BUILD_TIMEOUT,
+                )
+                if rc != 0:
+                    yield f"ERROR: SCP upload of sdk/ failed — {stderr.strip()}"
+                    return
+                yield "PASS SDK synced"
+            else:
+                yield "SKIP No local sdk/ directory to upload"
+        else:
+            yield "SKIP SDK already present on remote"
+
+        # --- Step 2: Upload generated bridge files individually ------------
+        yield f"Syncing {len(config.GCP_GENERATED_BRIDGE_FILES)} generated files ..."
+        # Ensure test-apk/ subdir exists on remote
+        mkdir_cmd = self._gcloud_base() + [
+            "compute", "ssh", self._instance,
+            "--zone", self._zone, "--quiet", "--",
+            f"mkdir -p {config.GCP_REMOTE_VHAL_PATH}/test-apk",
         ]
-        rc, _, stderr = self._shell.run(
-            cmd, timeout=config.GCP_INCREMENTAL_BUILD_TIMEOUT,
-        )
-        if rc != 0:
-            yield f"ERROR: SCP upload of bridge/ failed — {stderr.strip()}"
-            return
-        yield "PASS Bridge code synced"
+        self._shell.run(mkdir_cmd, timeout=30)
 
-        # Upload impl/vhal/ (patched VehicleService.cpp + Android.bp)
+        for filename in config.GCP_GENERATED_BRIDGE_FILES:
+            local_file = bridge_local / filename
+            if not local_file.exists():
+                continue  # Optional file not generated this run
+            remote = f"{self._instance}:{config.GCP_REMOTE_VHAL_PATH}/{filename}"
+            cmd = self._gcloud_base() + [
+                "compute", "scp",
+                str(local_file), remote,
+                "--zone", self._zone, "--quiet",
+            ]
+            rc, _, stderr = self._shell.run(
+                cmd, timeout=config.GCP_INCREMENTAL_BUILD_TIMEOUT,
+            )
+            if rc != 0:
+                yield f"ERROR: SCP upload of {filename} failed — {stderr.strip()}"
+                return
+        yield "PASS Generated bridge files synced"
+
+        # --- Step 3: Upload patched vhal files (unchanged) -----------------
         vhal_local = vhal_dir / "impl" / "vhal"
         if not vhal_local.is_dir():
             yield f"ERROR: VHAL directory not found at {vhal_local}"
             return
 
-        # Only upload the specific patched files, not the entire vhal/ dir.
-        # This avoids overwriting AOSP-original files (include/, test/) and
-        # prevents SCP nesting issues.
         patched_files = [
             vhal_local / "src" / "VehicleService.cpp",
             vhal_local / "Android.bp",
@@ -202,7 +241,6 @@ class GcpBuilder:
                 yield f"ERROR: Patched file not found at {local_file}"
                 return
 
-            # Map local path relative to vhal_local → remote path
             rel = local_file.relative_to(vhal_local)
             remote = f"{self._instance}:{config.GCP_REMOTE_BUILD_PATH}/{rel}"
 
