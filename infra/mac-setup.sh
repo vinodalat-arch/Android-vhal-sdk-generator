@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Mac Setup for VHAL SDK Generator
+# Mac Setup for VHAL SDK Generator (vanilla Mac — nothing pre-installed)
 # =============================================================================
-# Installs everything needed to run vhal-gen (CLI + Streamlit), the Android
-# Automotive emulator, and the GCP incremental build pipeline on macOS.
-#
 # Usage:
 #   bash infra/mac-setup.sh
 #
-# What this script does:
-#   1. Installs Homebrew packages (python3, java, clang)
-#   2. Installs Google Cloud SDK
-#   3. Installs Android SDK + automotive emulator image
-#   4. Clones repo + creates Python venv
-#   5. Sets up shell environment
+# Steps:
+#   1. Xcode Command Line Tools (git, clang)
+#   2. Homebrew
+#   3. Java 17 (required by Android SDK)
+#   4. Google Cloud SDK
+#   5. Android SDK + automotive emulator image
+#   6. Clone repo + Python venv + SDK extraction
+#   7. Shell profile setup
 # =============================================================================
 set -euo pipefail
 
@@ -37,10 +36,8 @@ step()  { echo -e "\n${BOLD}=== $* ===${NC}"; }
 ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ]; then
     ANDROID_ABI="x86_64"
-    CMDTOOLS_SUFFIX="mac"
 elif [ "$ARCH" = "arm64" ]; then
     ANDROID_ABI="arm64-v8a"
-    CMDTOOLS_SUFFIX="mac"
 else
     fail "Unsupported architecture: $ARCH"
 fi
@@ -48,54 +45,96 @@ fi
 info "Detected architecture: $ARCH"
 
 # ─────────────────────────────────────────────
-# Step 1: Homebrew + System Packages
+# Step 1: Xcode Command Line Tools
 # ─────────────────────────────────────────────
-step "Step 1: Homebrew + System Packages"
+step "Step 1: Xcode Command Line Tools"
 
-if ! command -v brew &>/dev/null; then
-    info "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    # Add brew to path for Apple Silicon
+if xcode-select -p &>/dev/null; then
+    info "Xcode CLI tools already installed."
+else
+    info "Installing Xcode Command Line Tools..."
+    xcode-select --install
+    warn "A dialog will appear — click 'Install' and wait for it to finish."
+    warn "Then re-run this script: bash infra/mac-setup.sh"
+    exit 0
+fi
+
+# ─────────────────────────────────────────────
+# Step 2: Homebrew
+# ─────────────────────────────────────────────
+step "Step 2: Homebrew"
+
+if command -v brew &>/dev/null; then
+    info "Homebrew already installed."
+else
+    # Check common install location for Apple Silicon
     if [ "$ARCH" = "arm64" ] && [ -f /opt/homebrew/bin/brew ]; then
         eval "$(/opt/homebrew/bin/brew shellenv)"
+        info "Homebrew found at /opt/homebrew."
+    elif [ -f /usr/local/bin/brew ]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+        info "Homebrew found at /usr/local."
+    else
+        info "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        if [ "$ARCH" = "arm64" ] && [ -f /opt/homebrew/bin/brew ]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        fi
     fi
+fi
+
+# Verify brew works
+command -v brew &>/dev/null || fail "Homebrew not found after install. Close terminal, reopen, and re-run this script."
+info "Homebrew OK: $(brew --prefix)"
+
+# ─────────────────────────────────────────────
+# Step 3: Java 17 (needed by Android SDK tools)
+# ─────────────────────────────────────────────
+step "Step 3: Java 17"
+
+brew install openjdk@17 2>/dev/null || true
+
+# Link so macOS finds it
+BREW_JAVA="$(brew --prefix openjdk@17)/libexec/openjdk.jdk"
+if [ -d "$BREW_JAVA" ]; then
+    sudo ln -sfn "$BREW_JAVA" /Library/Java/JavaVirtualMachines/openjdk-17.jdk 2>/dev/null || true
+    export JAVA_HOME="$BREW_JAVA/Contents/Home"
+    export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
+# Verify Java works
+if java -version 2>&1 | grep -q "17"; then
+    info "Java 17 OK."
 else
-    info "Homebrew already installed."
+    fail "Java 17 not working. Try: brew reinstall openjdk@17"
 fi
 
-brew install python@3 openjdk@17 wget 2>/dev/null || true
-
-# clang comes with Xcode Command Line Tools
-if ! command -v clang++ &>/dev/null; then
-    info "Installing Xcode Command Line Tools..."
-    xcode-select --install 2>/dev/null || true
-    warn "If prompted, click 'Install' in the dialog and wait for it to finish."
-    warn "Then re-run this script."
-fi
-
-info "System packages installed."
-
 # ─────────────────────────────────────────────
-# Step 2: Google Cloud SDK
+# Step 4: Google Cloud SDK
 # ─────────────────────────────────────────────
-step "Step 2: Google Cloud SDK"
+step "Step 4: Google Cloud SDK"
 
 if command -v gcloud &>/dev/null; then
     info "gcloud already installed: $(gcloud version 2>/dev/null | head -1)"
 else
     info "Installing Google Cloud SDK via Homebrew..."
     brew install --cask google-cloud-sdk 2>/dev/null || true
-    # Source gcloud paths
-    if [ -f "$(brew --prefix)/share/google-cloud-sdk/path.bash.inc" ]; then
-        source "$(brew --prefix)/share/google-cloud-sdk/path.bash.inc"
-    elif [ -f "$HOME/google-cloud-sdk/path.bash.inc" ]; then
-        source "$HOME/google-cloud-sdk/path.bash.inc"
-    fi
+
+    # Source gcloud into current session
+    BREW_PREFIX="$(brew --prefix)"
+    for inc in "$BREW_PREFIX/share/google-cloud-sdk/path.zsh.inc" \
+               "$BREW_PREFIX/share/google-cloud-sdk/path.bash.inc" \
+               "$HOME/google-cloud-sdk/path.zsh.inc"; do
+        if [ -f "$inc" ]; then
+            source "$inc"
+            break
+        fi
+    done
     info "gcloud installed."
 fi
 
 # Check auth
-if ! gcloud auth print-identity-token &>/dev/null; then
+if ! gcloud auth print-identity-token &>/dev/null 2>&1; then
     warn "gcloud not authenticated. Run after this script completes:"
     warn "  gcloud auth login"
     warn "  gcloud config set project vhal-builder"
@@ -104,9 +143,12 @@ else
 fi
 
 # ─────────────────────────────────────────────
-# Step 3: Android SDK + Automotive Emulator
+# Step 5: Android SDK + Automotive Emulator
 # ─────────────────────────────────────────────
-step "Step 3: Android SDK + Automotive Emulator"
+step "Step 5: Android SDK + Automotive Emulator"
+
+# Also install wget/python if missing
+brew install python@3 wget 2>/dev/null || true
 
 mkdir -p "$ANDROID_HOME"
 
@@ -148,10 +190,15 @@ else
     info "AVD 'automotive' already exists."
 fi
 
+# Verify
+adb version >/dev/null 2>&1 || fail "adb not found after SDK install"
+emulator -version >/dev/null 2>&1 || fail "emulator not found after SDK install"
+info "Android SDK OK — adb and emulator working."
+
 # ─────────────────────────────────────────────
-# Step 4: Clone Repo + Python Env
+# Step 6: Clone Repo + Python Env
 # ─────────────────────────────────────────────
-step "Step 4: Clone Repo + Python Environment"
+step "Step 6: Clone Repo + Python Environment"
 
 if [ -d "$INSTALL_DIR/vhal-gen" ]; then
     info "Repo already cloned at $INSTALL_DIR"
@@ -185,12 +232,12 @@ info "Installing Python dependencies..."
 .venv/bin/pip install -q -e .
 
 # ─────────────────────────────────────────────
-# Step 5: Shell Profile Setup
+# Step 7: Shell Profile Setup
 # ─────────────────────────────────────────────
-step "Step 5: Shell Environment"
+step "Step 7: Shell Environment"
 
-# Detect shell profile
-if [ -n "${ZSH_VERSION:-}" ] || [ "$SHELL" = "$(which zsh)" ]; then
+# Detect shell profile (Mac defaults to zsh)
+if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
     PROFILE="$HOME/.zshrc"
 else
     PROFILE="$HOME/.bashrc"
@@ -199,18 +246,17 @@ fi
 MARKER="# vhal-sdk-generator setup"
 
 if ! grep -q "$MARKER" "$PROFILE" 2>/dev/null; then
-    cat >> "$PROFILE" << 'ENVEOF'
+    BREW_PREFIX="$(brew --prefix)"
+    cat >> "$PROFILE" << ENVEOF
 
 # vhal-sdk-generator setup
-export ANDROID_HOME="$HOME/android-sdk"
-export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+eval "\$($BREW_PREFIX/bin/brew shellenv)"
+export JAVA_HOME="$BREW_JAVA/Contents/Home"
+export ANDROID_HOME="\$HOME/android-sdk"
+export PATH="\$JAVA_HOME/bin:\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools:\$ANDROID_HOME/emulator:\$PATH"
 # Google Cloud SDK
-if [ -f "$(brew --prefix 2>/dev/null)/share/google-cloud-sdk/path.zsh.inc" ]; then
-  source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
-elif [ -f "$(brew --prefix 2>/dev/null)/share/google-cloud-sdk/path.bash.inc" ]; then
-  source "$(brew --prefix)/share/google-cloud-sdk/path.bash.inc"
-elif [ -f "$HOME/google-cloud-sdk/path.zsh.inc" ]; then
-  source "$HOME/google-cloud-sdk/path.zsh.inc"
+if [ -f "$BREW_PREFIX/share/google-cloud-sdk/path.zsh.inc" ]; then
+  source "$BREW_PREFIX/share/google-cloud-sdk/path.zsh.inc"
 fi
 ENVEOF
     info "Added environment variables to $PROFILE"
@@ -226,26 +272,26 @@ step "Setup Complete"
 echo ""
 echo -e "${BOLD}Installed:${NC}"
 echo "  Python:      $(python3 --version)"
+echo "  Java:        $(java -version 2>&1 | head -1)"
 echo "  clang++:     $(clang++ --version 2>/dev/null | head -1)"
 echo "  gcloud:      $(gcloud version 2>/dev/null | head -1 || echo 'installed (needs auth)')"
-echo "  adb:         $(adb version 2>/dev/null | head -1 || echo 'installed')"
+echo "  adb:         $(adb version 2>/dev/null | head -1)"
+echo "  emulator:    $(emulator -version 2>/dev/null | head -1)"
 echo "  vhal-gen:    $INSTALL_DIR/vhal-gen"
 echo ""
 echo -e "${BOLD}Next steps:${NC}"
 echo ""
-echo "  1. Authenticate gcloud (if not already):"
+echo "  1. Open a NEW terminal (so PATH takes effect), then:"
+echo ""
+echo "  2. Authenticate gcloud:"
 echo "     gcloud auth login"
 echo "     gcloud config set project vhal-builder"
 echo ""
-echo "  2. Start the emulator (with UDP port forwarding for VSM Ethernet):"
+echo "  3. Start the emulator:"
 echo "     emulator -avd automotive -writable-system -qemu -net user,hostfwd=udp::5555-:5555 &"
 echo "     adb wait-for-device"
 echo ""
-echo "  3. Run Streamlit UI:"
+echo "  4. Run Streamlit UI:"
 echo "     cd $INSTALL_DIR/vhal-gen"
 echo "     .venv/bin/python -m streamlit run streamlit_app/app.py"
-echo ""
-echo "  4. Or use CLI:"
-echo "     cd $INSTALL_DIR/vhal-gen"
-echo "     .venv/bin/python -m vhal_gen generate --help"
 echo ""
