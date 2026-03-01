@@ -855,11 +855,15 @@ with tab_ivi:
                             st.write(f"  - `{avd}`{tag}")
                         # Pick automotive AVD first, then first available
                         default_avd = automotive_avds[0] if automotive_avds else avds[0]
+                        udp_port = config.EMULATOR_UDP_FORWARD_PORT
                         st.info(
                             "Start the automotive emulator with:\n\n"
                             "```bash\n"
-                            f"{emu_bin} -avd {default_avd} -writable-system\n"
-                            "```"
+                            f"{emu_bin} -avd {default_avd} -writable-system "
+                            f"-qemu -net user,hostfwd=udp::{udp_port}-:{udp_port}\n"
+                            "```\n\n"
+                            f"UDP port {udp_port} is forwarded from host → emulator "
+                            "for VSM Ethernet communication."
                         )
                     else:
                         st.warning("No AVDs found. Create one with Android Studio AVD Manager.")

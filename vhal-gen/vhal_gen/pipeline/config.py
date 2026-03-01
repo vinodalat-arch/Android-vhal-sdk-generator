@@ -85,6 +85,11 @@ ARTIFACT_DOWNLOAD_BACKOFF_SECONDS = 10
 # adb
 ADB_REBOOT_WAIT_SECONDS = 60
 
+# Emulator UDP port forwarding for VSM Ethernet communication
+# Maps host UDP port → guest UDP port so external VSM hardware can
+# send/receive packets to the vehicle-daemon inside the emulator.
+EMULATOR_UDP_FORWARD_PORT = 5555
+
 # GCP Incremental Build
 GCP_REMOTE_VHAL_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/bridge"
 GCP_REMOTE_BUILD_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/vhal"

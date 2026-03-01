@@ -179,8 +179,13 @@ class EmulatorDeployer:
             if line.strip() and "device" in line
         ]
         if not lines:
+            from . import config
+            udp_port = config.EMULATOR_UDP_FORWARD_PORT
             yield "ERROR: No device/emulator found.  Start one with:"
-            yield "  emulator -avd automotive -no-snapshot &"
+            yield (
+                f"  emulator -avd automotive -writable-system "
+                f"-qemu -net user,hostfwd=udp::{udp_port}-:{udp_port} &"
+            )
             yield "  adb wait-for-device"
             return
         device_id = lines[0].split()[0]
