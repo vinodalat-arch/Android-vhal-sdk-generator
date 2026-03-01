@@ -110,10 +110,10 @@ android_app {
     name: "VhalTestApp",
     srcs: ["test-apk/VhalTestActivity.java"],
     manifest: "test-apk/AndroidManifest.xml",
-    platform_apis: true,
-    // Pin to API 34 so the APK installs on release builds (trunk sets
-    // targetSdkVersion to the dev codename which release images reject).
-    target_sdk_version: "34",
+    // Use system_current (not platform_apis) so the APK doesn't get tagged
+    // with the development codename which release builds reject.
+    sdk_version: "system_current",
+    min_sdk_version: "33",
     certificate: "platform",
     privileged: true,
     libs: ["android.car"],
