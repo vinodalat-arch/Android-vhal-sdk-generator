@@ -450,7 +450,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-tab_ivi, tab_sdk = st.tabs(["Generate IVI Package", "Generate Vehicle SDK"])
+tab_ivi, tab_sdk = st.tabs(["Generate IVI Node SDK", "Generate Vehicle SDK"])
 
 # ── Vehicle SDK Tab (placeholder) ──
 with tab_sdk:
@@ -589,9 +589,9 @@ with tab_ivi:
     st.divider()
 
     # ─────────────────────────────────────────────
-    # Section 3: Generate IVI Package
+    # Section 3: Generate IVI Node SDK
     # ─────────────────────────────────────────────
-    st.header("3. Generate IVI Package")
+    st.header("3. Generate IVI Node SDK")
 
     if not st.session_state.get("model_loaded"):
         st.warning("Set the YAML model directory in the sidebar and click **Load Model** to begin.")
