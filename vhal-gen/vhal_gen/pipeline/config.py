@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+import platform
+
+# Auto-detect host architecture → pick matching AOSP lunch target
+_MACHINE = platform.machine()  # "x86_64" or "arm64"/"aarch64"
+if _MACHINE == "x86_64":
+    _ARCH_LUNCH = "sdk_car_x86_64-trunk_staging-userdebug"
+    _ARCH_PRODUCT = "emulator_car_x86_64"
+else:
+    _ARCH_LUNCH = "sdk_car_arm64-trunk_staging-userdebug"
+    _ARCH_PRODUCT = "emulator_car64_arm64"
+
 # Build
 WORKFLOW_FILE = "build-vhal.yml"
 DEFAULT_AOSP_TAG = "android-14.0.0_r75"
-DEFAULT_BUILD_TARGET = "sdk_car_arm64-trunk_staging-userdebug"
-DEFAULT_LUNCH_TARGET = "sdk_car_arm64-trunk_staging-userdebug"
+DEFAULT_BUILD_TARGET = _ARCH_LUNCH
+DEFAULT_LUNCH_TARGET = _ARCH_LUNCH
 BUILD_TIMEOUT_SECONDS = 2 * 60 * 60  # 2 hours
 BUILD_POLL_INTERVAL_SECONDS = 30
 
@@ -77,7 +88,7 @@ ADB_REBOOT_WAIT_SECONDS = 60
 # GCP Incremental Build
 GCP_REMOTE_VHAL_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/bridge"
 GCP_REMOTE_BUILD_PATH = "~/aosp/hardware/interfaces/automotive/vehicle/aidl/impl/vhal"
-GCP_PRODUCT_OUT_PATH = "~/aosp/out/target/product/emulator_car64_arm64"
+GCP_PRODUCT_OUT_PATH = f"~/aosp/out/target/product/{_ARCH_PRODUCT}"
 GCP_INCREMENTAL_BUILD_TIMEOUT = 20 * 60  # 20 minutes
 GCP_ARTIFACT_REMOTE_PATHS = {
     VHAL_SERVICE_BINARY: (
