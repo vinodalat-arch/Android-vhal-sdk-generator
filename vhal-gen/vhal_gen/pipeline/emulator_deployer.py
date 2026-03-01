@@ -147,9 +147,9 @@ class EmulatorDeployer:
         # initializes fresh with the new VHAL binary.
         yield "Rebooting device for clean VHAL + app registration..."
         self._shell.run(["adb", "reboot"], timeout=15)
-        yield f"Waiting {config.ADB_REBOOT_WAIT_SECONDS}s for reboot..."
-        time.sleep(config.ADB_REBOOT_WAIT_SECONDS)
-        self._shell.run(["adb", "wait-for-device"], timeout=120)
+
+        yield from self._wait_for_full_boot()
+
         self._shell.run(["adb", "root"], timeout=15)
         self._shell.run(["adb", "wait-for-device"], timeout=30)
 
@@ -199,9 +199,7 @@ class EmulatorDeployer:
             yield "Verity is enabled — disabling and rebooting..."
             self._shell.run(["adb", "disable-verity"], timeout=15)
             self._shell.run(["adb", "reboot"], timeout=15)
-            yield f"Waiting {config.ADB_REBOOT_WAIT_SECONDS}s for reboot..."
-            time.sleep(config.ADB_REBOOT_WAIT_SECONDS)
-            self._shell.run(["adb", "wait-for-device"], timeout=120)
+            yield from self._wait_for_full_boot()
             self._shell.run(["adb", "root"], timeout=15)
             self._shell.run(["adb", "wait-for-device"], timeout=30)
             rc, stdout, stderr = self._shell.run(["adb", "remount"], timeout=30)
@@ -209,6 +207,64 @@ class EmulatorDeployer:
                 yield f"ERROR: adb remount failed after reboot — {stderr.strip()}"
                 return
         yield "Filesystem remounted read-write."
+
+    def _wait_for_full_boot(self, boot_timeout: int = 180) -> Iterator[str]:
+        """Wait for the device to fully boot (sys.boot_completed=1).
+
+        If the device doesn't boot within *boot_timeout* seconds, kill the
+        emulator and cold-boot it.
+        """
+        yield f"Waiting for device to fully boot (up to {boot_timeout}s)..."
+        self._shell.run(["adb", "wait-for-device"], timeout=120)
+
+        deadline = time.time() + boot_timeout
+        booted = False
+        while time.time() < deadline:
+            rc, stdout, _ = self._shell.run(
+                ["adb", "shell", "getprop", "sys.boot_completed"], timeout=5,
+            )
+            if stdout.strip() == "1":
+                booted = True
+                break
+            time.sleep(5)
+
+        if booted:
+            yield "PASS Device fully booted"
+            return
+
+        # Device stuck — kill and cold-boot
+        yield "WARNING: Device stuck during boot — cold-booting emulator..."
+        self._shell.run(["adb", "emu", "kill"], timeout=15)
+        time.sleep(5)
+
+        # Find the AVD name from the running emulator, fallback to "automotive"
+        avd_name = "automotive"
+        rc, stdout, _ = self._shell.run(
+            ["adb", "shell", "getprop", "ro.boot.qemu.avd_name"], timeout=5,
+        )
+        if rc == 0 and stdout.strip():
+            avd_name = stdout.strip()
+
+        yield f"Starting emulator (AVD: {avd_name}) with cold boot..."
+        self._shell.run(
+            ["emulator", "-avd", avd_name, "-writable-system", "-no-snapshot-load"],
+            timeout=5,  # Fire-and-forget — emulator runs in background
+        )
+        time.sleep(10)
+        self._shell.run(["adb", "wait-for-device"], timeout=120)
+
+        # Wait again for full boot
+        deadline = time.time() + boot_timeout
+        while time.time() < deadline:
+            rc, stdout, _ = self._shell.run(
+                ["adb", "shell", "getprop", "sys.boot_completed"], timeout=5,
+            )
+            if stdout.strip() == "1":
+                yield "PASS Device fully booted (cold boot)"
+                return
+            time.sleep(5)
+
+        yield "ERROR: Device failed to boot even after cold boot"
 
     @staticmethod
     def _find_file(
