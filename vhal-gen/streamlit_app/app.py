@@ -582,8 +582,8 @@ with tab_ivi:
 
     st.caption("Target: **Android 14** (Android 15/16 on roadmap)")
     sdk_source_dir = _folder_picker(
-        "Vehicle Body SDK Directory (optional)", "sdk_source_dir",
-        help_text="Path to Vehicle Body SDK source directory. SDK files will be copied into the generated package.",
+        "Vehicle SDK Directory (optional)", "sdk_source_dir",
+        help_text="Path to Vehicle SDK source directory. SDK files will be copied into the generated package.",
     )
 
     st.divider()
