@@ -711,23 +711,23 @@ with tab_ivi:
                 mime="application/zip",
             )
 
-            # File preview
-            st.subheader("Generated Files")
-            for f in generated:
-                rel = f.relative_to(bridge_dir)
-                with st.expander(str(rel)):
-                    content = f.read_text()
-                    ext = f.suffix
-                    lang = (
-                        "cpp" if ext in (".cpp", ".h") else
-                        "json" if ext == ".json" else
-                        "java" if ext == ".java" else
-                        "xml" if ext == ".xml" else
-                        "makefile" if ext == ".bp" else
-                        "markdown" if ext == ".md" else
-                        "text"
-                    )
-                    st.code(content, language=lang)
+            # File preview (collapsed by default)
+            with st.expander(f"Generated Files ({len(generated)})", expanded=False):
+                for f in generated:
+                    rel = f.relative_to(bridge_dir)
+                    with st.expander(str(rel)):
+                        content = f.read_text()
+                        ext = f.suffix
+                        lang = (
+                            "cpp" if ext in (".cpp", ".h") else
+                            "json" if ext == ".json" else
+                            "java" if ext == ".java" else
+                            "xml" if ext == ".xml" else
+                            "makefile" if ext == ".bp" else
+                            "markdown" if ext == ".md" else
+                            "text"
+                        )
+                        st.code(content, language=lang)
 
     st.divider()
 
