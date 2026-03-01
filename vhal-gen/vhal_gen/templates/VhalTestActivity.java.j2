@@ -307,12 +307,12 @@ public class VhalTestActivity extends Activity {
                     }
                 }
 
-                mTable.addView(createResultRow(name, type, "OK", valueStr, true, i));
+                mTable.addView(createResultRow(name, type, "Available", valueStr, true, i));
                 passed++;
                 Log.i(TAG, name + " = " + valueStr);
 
             } catch (Exception e) {
-                mTable.addView(createResultRow(name, type, "FAIL", e.getMessage(), false, i));
+                mTable.addView(createResultRow(name, type, "Not Available", e.getMessage(), false, i));
                 failed++;
                 Log.e(TAG, "Failed to read " + name, e);
             }
@@ -340,7 +340,7 @@ public class VhalTestActivity extends Activity {
         summary.setPadding(4, 12, 4, 12);
 
         TextView summaryText = new TextView(this);
-        summaryText.setText(String.format("%d passed, %d failed, %d total", passed, failed, total));
+        summaryText.setText(String.format("%d available, %d not available, %d total", passed, failed, total));
         summaryText.setTypeface(null, Typeface.BOLD);
         summaryText.setTextSize(22f);
         summaryText.setPadding(12, 12, 12, 12);
