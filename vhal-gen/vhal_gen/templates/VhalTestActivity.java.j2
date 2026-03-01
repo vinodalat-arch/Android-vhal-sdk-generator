@@ -156,7 +156,7 @@ public class VhalTestActivity extends Activity {
         int propType = PROPERTY_TYPES[index];
         int access = PROPERTY_ACCESS[index];
 
-        if (access == ACCESS_WRITE || access == ACCESS_READ_WRITE) {
+        if (isOk && (access == ACCESS_WRITE || access == ACCESS_READ_WRITE)) {
             LinearLayout controlLayout = new LinearLayout(this);
             controlLayout.setOrientation(LinearLayout.HORIZONTAL);
             controlLayout.setPadding(12, 10, 12, 10);
