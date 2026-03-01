@@ -50,6 +50,8 @@ class DeployOrchestrator:
         ssh_key: str = "",
         ssh_password: str = "",
         aosp_dir: str = "~/aosp",
+        ssh_lunch_target: str = "",
+        ssh_product_name: str = "",
     ) -> Iterator[str]:
         """Execute the deploy-test pipeline.
 
@@ -97,6 +99,8 @@ class DeployOrchestrator:
                 ssh_key=ssh_key,
                 ssh_password=ssh_password,
                 aosp_dir=aosp_dir,
+                lunch_target=ssh_lunch_target,
+                product_name=ssh_product_name,
                 shell=self._shell,
                 force_sdk_sync=force_sdk_sync,
             )

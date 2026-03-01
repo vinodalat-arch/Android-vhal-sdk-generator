@@ -1159,12 +1159,18 @@ with tab_ivi:
                     placeholder="~/.ssh/id_rsa (optional)",
                     help="Path to SSH private key. Leave blank to use default.",
                 )
-            col_ssh_aosp, _ = st.columns(2)
+            col_ssh_aosp, col_ssh_lunch = st.columns(2)
             with col_ssh_aosp:
                 ssh_aosp_dir_val = st.text_input(
                     "AOSP Dir", key="ssh_aosp_dir",
                     value="/mnt/dev/ford-sdk",
                     help="Path to AOSP source tree on the remote machine.",
+                )
+            with col_ssh_lunch:
+                ssh_lunch_val = st.text_input(
+                    "Lunch Target", key="ssh_lunch_target",
+                    value="sdk_car_arm64-ap2a-userdebug",
+                    help="AOSP lunch target for the build.",
                 )
 
             ssh_check_clicked = st.button(
@@ -1199,6 +1205,7 @@ with tab_ivi:
             ssh_key=ssh_key_val,
             ssh_password=ssh_password_val,
             aosp_dir=ssh_aosp_dir_val,
+            lunch_target=ssh_lunch_val,
         )
         with st.status("Checking SSH connection & build environment...", expanded=True) as ssh_status:
             ssh_ok = True
@@ -1243,6 +1250,7 @@ with tab_ivi:
                     ssh_key=ssh_key_val,
                     ssh_password=ssh_password_val,
                     aosp_dir=ssh_aosp_dir_val,
+                    ssh_lunch_target=ssh_lunch_val,
                 ):
                     all_lines.append(line)
                     if line.startswith("PASS"):

@@ -26,6 +26,8 @@ class SshBuilder:
         ssh_key: str = "",
         ssh_password: str = "",
         aosp_dir: str = "~/aosp",
+        lunch_target: str = "",
+        product_name: str = "",
         shell: ShellRunner | None = None,
         force_sdk_sync: bool = False,
     ) -> None:
@@ -34,6 +36,8 @@ class SshBuilder:
         self._key = ssh_key
         self._password = ssh_password
         self._aosp_dir = aosp_dir
+        self._lunch_target = lunch_target or config.DEFAULT_LUNCH_TARGET
+        self._product_name = product_name or config._ARCH_PRODUCT
         self._shell = shell or ShellRunner()
         self._force_sdk_sync = force_sdk_sync
 
@@ -45,7 +49,7 @@ class SshBuilder:
             f"{aosp_dir}/hardware/interfaces/automotive/vehicle/aidl/impl/vhal"
         )
         self._remote_product_out = (
-            f"{aosp_dir}/out/target/product/{config._ARCH_PRODUCT}"
+            f"{aosp_dir}/out/target/product/{self._product_name}"
         )
 
     # -- helpers --------------------------------------------------------
@@ -263,7 +267,7 @@ class SshBuilder:
         yield "Running VHAL build (mma) ..."
         build_script = (
             f"cd {self._aosp_dir} && source build/envsetup.sh && "
-            f"lunch {config.DEFAULT_LUNCH_TARGET} && "
+            f"lunch {self._lunch_target} && "
             f"cd {self._remote_vhal} && "
             "mma -j$(nproc) 2>&1"
         )
