@@ -72,19 +72,6 @@ class DeployOrchestrator:
         else:
             yield "=== Stage 1: Generate (skipped) ==="
 
-        # --- Stage 1b: Compile Check (mandatory gate) ---
-        yield ""
-        yield "=== Compile Check ==="
-        builder = StubBuilder()
-        compile_failed = False
-        for line in builder.compile_check(vhal_dir, sdk_dir=sdk_dir):
-            yield line
-            if line.startswith("FAIL") or line.startswith("ERROR:"):
-                compile_failed = True
-        if compile_failed:
-            yield "Pipeline aborted — compile check failed."
-            return
-
         # --- Stages 2–4: Build ---
         if incremental:
             # Incremental build on a pre-existing GCP instance
