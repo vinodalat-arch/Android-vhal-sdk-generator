@@ -220,11 +220,40 @@ vhal-gen/
 └── pyproject.toml
 ```
 
-## Running Tests
+## Utility Commands
 
 ```bash
-source .venv/bin/activate
-python -m pytest tests/ -q
+# Start Streamlit UI
+cd vhal-gen
+.venv/bin/python -m streamlit run streamlit_app/app.py --server.port 8501
+
+# Restart Streamlit UI (kill existing + start fresh)
+pkill -f "streamlit run" && sleep 1 && .venv/bin/python -m streamlit run streamlit_app/app.py --server.port 8501 &
+
+# Start emulator (with UDP port forwarding for VSM Ethernet)
+emulator -avd automotive -writable-system -qemu -net user,hostfwd=udp::5555-:5555 &
+adb wait-for-device
+
+# Check emulator connection
+adb devices
+
+# Verify VHAL is running
+adb shell getprop init.svc.vendor.vehicle-hal-emulator
+
+# List registered VHAL properties
+adb shell cmd car_service get-property-value 0x21200101
+
+# Check VHAL logs
+adb logcat -s VehicleDaemon BridgeVehicleHardware
+
+# GCP instance status
+gcloud compute instances describe aosp-builder --zone=us-central1-a --format='value(status)'
+
+# SSH to GCP build instance
+gcloud compute ssh aosp-builder --zone=us-central1-a
+
+# Run tests
+.venv/bin/python -m pytest tests/ -q
 ```
 
 ## Dependencies
