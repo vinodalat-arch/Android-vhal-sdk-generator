@@ -110,12 +110,12 @@ public class VhalTestActivity extends Activity {
         header.setBackgroundColor(Color.parseColor("#E0E0E0"));
         header.setPadding(4, 12, 4, 12);
 
-        String[] titles = {"Property Name", "Type", "Status", "Value / Control"};
+        String[] titles = {"Property", "Type", "Status", "Value"};
         for (String title : titles) {
             TextView tv = new TextView(this);
             tv.setText(title);
             tv.setTypeface(null, Typeface.BOLD);
-            tv.setTextSize(22f);
+            tv.setTextSize(44f);
             tv.setPadding(12, 12, 12, 12);
             header.addView(tv);
         }
@@ -130,21 +130,21 @@ public class VhalTestActivity extends Activity {
         // Property Name
         TextView nameView = new TextView(this);
         nameView.setText(name);
-        nameView.setTextSize(18f);
+        nameView.setTextSize(36f);
         nameView.setPadding(12, 10, 12, 10);
         row.addView(nameView);
 
         // Type (AOSP / Vendor Extension)
         TextView typeView = new TextView(this);
         typeView.setText(type);
-        typeView.setTextSize(18f);
+        typeView.setTextSize(36f);
         typeView.setPadding(12, 10, 12, 10);
         row.addView(typeView);
 
         // Status (color-coded)
         TextView statusView = new TextView(this);
         statusView.setText(status);
-        statusView.setTextSize(18f);
+        statusView.setTextSize(36f);
         statusView.setTypeface(null, Typeface.BOLD);
         statusView.setPadding(12, 10, 12, 10);
         statusView.setTextColor(isOk ? Color.parseColor("#2E7D32") : Color.parseColor("#C62828"));
@@ -164,7 +164,7 @@ public class VhalTestActivity extends Activity {
 
             EditText editText = new EditText(this);
             editText.setText(value);
-            editText.setTextSize(18f);
+            editText.setTextSize(36f);
             editText.setMinWidth(120);
             LinearLayout.LayoutParams etParams = new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -172,7 +172,7 @@ public class VhalTestActivity extends Activity {
 
             Button sendBtn = new Button(this);
             sendBtn.setText("Send");
-            sendBtn.setTextSize(16f);
+            sendBtn.setTextSize(32f);
             sendBtn.setOnClickListener(v -> {
                 String input = editText.getText().toString().trim();
                 try {
@@ -197,7 +197,7 @@ public class VhalTestActivity extends Activity {
         } else {
             TextView valueView = new TextView(this);
             valueView.setText(value);
-            valueView.setTextSize(18f);
+            valueView.setTextSize(36f);
             valueView.setPadding(12, 10, 12, 10);
             row.addView(valueView);
         }
@@ -240,7 +240,7 @@ public class VhalTestActivity extends Activity {
         TextView tv = new TextView(this);
         tv.setText("ERROR: " + message);
         tv.setTextColor(Color.RED);
-        tv.setTextSize(20f);
+        tv.setTextSize(40f);
         tv.setPadding(12, 12, 12, 12);
         TableRow.LayoutParams params = new TableRow.LayoutParams();
         params.span = 4;
@@ -342,7 +342,7 @@ public class VhalTestActivity extends Activity {
         TextView summaryText = new TextView(this);
         summaryText.setText(String.format("%d properties available", total));
         summaryText.setTypeface(null, Typeface.BOLD);
-        summaryText.setTextSize(22f);
+        summaryText.setTextSize(44f);
         summaryText.setPadding(12, 12, 12, 12);
         TableRow.LayoutParams params = new TableRow.LayoutParams();
         params.span = 4;
