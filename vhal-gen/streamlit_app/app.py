@@ -732,14 +732,14 @@ with tab_ivi:
     # ─────────────────────────────────────────────
     # Section 4: Build, Deploy & Verify
     # ─────────────────────────────────────────────
-    st.header("4. Build, Deploy & Verify")
+    st.header("4. Build & Deploy")
 
     runner = ShellRunner()
 
     # ── 4a. Local Verification ──
     st.subheader("4a. Local Verification")
 
-    col_stub, col_e, col_v = st.columns(3)
+    col_stub, col_e = st.columns(2)
 
     with col_stub:
         stub_clicked = st.button(
@@ -753,12 +753,6 @@ with tab_ivi:
             "Emulator Status",
             use_container_width=True,
             help="Check available Android Automotive emulators on this machine.",
-        )
-    with col_v:
-        verify_clicked = st.button(
-            "Verify Properties",
-            use_container_width=True,
-            help="Query a connected device/emulator to verify generated properties are registered.",
         )
 
     if stub_clicked:
@@ -870,41 +864,6 @@ with tab_ivi:
                     else:
                         st.warning("No AVDs found. Create one with Android Studio AVD Manager.")
                     status.update(label=f"Emulator ready ({len(avds)} AVD{'s' if len(avds) != 1 else ''})", state="complete")
-
-    if verify_clicked:
-        with st.status("Verifying properties...", expanded=True) as status:
-            rc, stdout, stderr = runner.run(
-                ["adb", "shell", "cmd", "car_service", "get-property-config"]
-            )
-            if rc != 0:
-                st.warning(
-                    "No device connected. Ensure an Android device or emulator is running and connected via ADB."
-                )
-                if stderr:
-                    st.code(stderr)
-                status.update(label="Verification failed", state="error")
-            else:
-                st.write("Property configuration from device:")
-                st.code(stdout[:5000] if len(stdout) > 5000 else stdout)
-
-                # Cross-check with generated mappings
-                if st.session_state.get("mappings"):
-                    mappings = st.session_state["mappings"]
-                    results = []
-                    for m in mappings:
-                        found = m.property_id_hex in stdout or str(m.property_id) in stdout
-                        results.append({
-                            "Signal": m.signal_name,
-                            "Property ID": m.property_id_hex,
-                            "Status": "PASS" if found else "NOT FOUND",
-                        })
-                    st.dataframe(results, use_container_width=True)
-                    passed = sum(1 for r in results if r["Status"] == "PASS")
-                    if passed == len(results):
-                        st.session_state["verified"] = True
-                    st.write(f"**{passed}/{len(results)}** properties found on device.")
-
-                status.update(label="Verification complete", state="complete")
 
     # ── 4b. Build & Deploy VHAL ──
     st.subheader("4b. Build & Deploy VHAL")
