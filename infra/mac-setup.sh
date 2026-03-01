@@ -204,6 +204,14 @@ if ! grep -q "$MARKER" "$PROFILE" 2>/dev/null; then
 # vhal-sdk-generator setup
 export ANDROID_HOME="$HOME/android-sdk"
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+# Google Cloud SDK
+if [ -f "$(brew --prefix 2>/dev/null)/share/google-cloud-sdk/path.zsh.inc" ]; then
+  source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
+elif [ -f "$(brew --prefix 2>/dev/null)/share/google-cloud-sdk/path.bash.inc" ]; then
+  source "$(brew --prefix)/share/google-cloud-sdk/path.bash.inc"
+elif [ -f "$HOME/google-cloud-sdk/path.zsh.inc" ]; then
+  source "$HOME/google-cloud-sdk/path.zsh.inc"
+fi
 ENVEOF
     info "Added environment variables to $PROFILE"
 else
